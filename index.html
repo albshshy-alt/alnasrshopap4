@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>مكتبة النصر - دوما</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Reem+Kufi:wght@500;700&family=Tajawal:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#1f3a2e">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%231f3a2e' stroke='%23c9a24a' stroke-width='3'/%3E%3Ctext x='32' y='44' font-size='36' text-anchor='middle' fill='%23f1e9d8' font-family='serif' font-weight='700'%3E%D9%86%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="site-header no-print">
+  <div class="wrap header-inner">
+    <div class="brand">
+      <div class="brand-mark">ن</div>
+      <div>
+        <div class="brand-name">مكتبة النصر</div>
+        <div class="brand-sub">دوما</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button id="cartBtn" class="cart-btn">
+        سلة المشتريات <span id="cartCount">0</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<section class="page-head hero no-print">
+  <div class="wrap">
+    <div class="kicker">قائمة الأسعار</div>
+    <h1>كل ما تحتاجه للمدرسة والمنزل والمناسبات</h1>
+    <p>اختر المنتجات، أضفها للسلة، واطبع فاتورتك مباشرة.</p>
+
+    <div class="controls">
+      <input type="text" id="searchInput" placeholder="ابحث عن منتج..." />
+      <div class="tabs" id="tabs"></div>
+    </div>
+
+  </div>
+</section>
+
+<main class="wrap no-print" id="main">
+  <div id="catalog"></div>
+</main>
+
+<footer class="site-footer no-print">
+  <div class="wrap">
+    <div class="footer-contact">
+      <a class="contact-btn" href="tel:0954672747" dir="ltr">📞 0954 672 747</a>
+      <a class="contact-btn whatsapp" href="https://wa.me/963954672747" target="_blank" rel="noopener">تواصل عبر واتساب</a>
+    </div>
+    <p>مكتبة النصر — دوما. الأسعار قابلة للتغيير دون إشعار مسبق.</p>
+    <p class="copyright">جميع الحقوق محفوظة لدى Yusuf elbeses ©</p>
+  </div>
+</footer>
+
+<!-- سلة المشتريات -->
+<div id="cartOverlay" class="cart-overlay no-print">
+  <div class="cart-panel">
+    <div class="cart-panel-head">
+      <h3>سلة المشتريات</h3>
+      <button id="closeCart" class="close-btn">×</button>
+    </div>
+
+    <div id="cartItems" class="cart-items"></div>
+
+    <div class="discount-field">
+      <label for="discountValue">حسم الفاتورة (اختياري)</label>
+      <div class="discount-row">
+        <input type="number" id="discountValue" min="0" placeholder="0" />
+        <select id="discountType">
+          <option value="percent">%</option>
+          <option value="amount">ل.س</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="cart-summary">
+      <div class="cart-summary-row">
+        <span>المجموع الفرعي</span>
+        <span id="cartSubtotal">0 ل.س</span>
+      </div>
+      <div class="cart-summary-row discount-line" id="cartDiscountRow">
+        <span>الحسم</span>
+        <span id="cartDiscountAmount">0 ل.س</span>
+      </div>
+      <div class="cart-total">
+        <span>المجموع</span>
+        <strong id="cartTotal">0 ل.س</strong>
+      </div>
+    </div>
+
+    <div class="customer-field">
+      <label for="customerName">اسم الزبون (اختياري)</label>
+      <input type="text" id="customerName" placeholder="مثال: أبو محمد" />
+    </div>
+
+    <div class="customer-field">
+      <label for="invoiceDateInput">تاريخ الفاتورة</label>
+      <input type="date" id="invoiceDateInput" />
+    </div>
+
+    <div class="customer-field">
+      <label for="invoiceNotes">ملاحظات (اختياري)</label>
+      <textarea id="invoiceNotes" rows="2" maxlength="300" placeholder="مثال: التسليم يوم الخميس"></textarea>
+    </div>
+
+    <div class="cart-actions">
+      <button id="printInvoiceBtn" class="btn-primary-small">طباعة الفاتورة</button>
+      <button id="clearCart" class="btn-ghost-small">تفريغ السلة</button>
+    </div>
+  </div>
+</div>
+
+<!-- الفاتورة القابلة للطباعة -->
+<div id="invoiceArea" class="invoice-area">
+  <div class="invoice-header">
+    <div class="invoice-brand">
+      <div class="invoice-mark">ن</div>
+      <div>
+        <h2>مكتبة النصر</h2>
+        <span>دوما</span>
+      </div>
+    </div>
+    <div class="invoice-meta">
+      <div><span>رقم الفاتورة:</span> <b id="invNumber"></b></div>
+      <div><span>التاريخ:</span> <b id="invDate"></b></div>
+      <div><span>الزبون:</span> <b id="invCustomer">—</b></div>
+    </div>
+  </div>
+
+  <table class="invoice-table">
+    <thead>
+      <tr>
+        <th>المنتج</th>
+        <th>الكمية</th>
+        <th>السعر</th>
+        <th>الإجمالي</th>
+      </tr>
+    </thead>
+    <tbody id="invoiceBody"></tbody>
+  </table>
+
+  <div class="invoice-summary">
+    <div class="invoice-summary-col">
+      <div class="invoice-summary-row">
+        <span>المجموع الفرعي</span>
+        <b id="invSubtotal">0 ل.س</b>
+      </div>
+      <div class="invoice-summary-row" id="invDiscountRow">
+        <span id="invDiscountLabel">الحسم</span>
+        <b id="invDiscountAmount">0 ل.س</b>
+      </div>
+      <div class="invoice-summary-row invoice-summary-total">
+        <span>المجموع الكلي</span>
+        <b id="invTotal">0 ل.س</b>
+      </div>
+    </div>
+  </div>
+
+  <div class="invoice-notes" id="invNotesBox">
+    <span>ملاحظات:</span>
+    <p id="invNotes"></p>
+  </div>
+
+  <div class="invoice-footer">
+    <p>شكرًا لتعاملكم مع مكتبة النصر — دوما</p>
+    <p>جميع الحقوق محفوظة لدى Yusuf elbeses ©</p>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
