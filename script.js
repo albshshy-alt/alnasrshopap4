@@ -277,7 +277,7 @@ const closeCart = document.getElementById("closeCart");
 const cartItemsEl = document.getElementById("cartItems");
 const cartTotalEl = document.getElementById("cartTotal");
 const clearCartBtn = document.getElementById("clearCart");
-const printInvoiceBtn = document.getElementById("printInvoiceBtn");
+const shareInvoiceBtn = document.getElementById("shareInvoiceBtn");
 const customerNameInput = document.getElementById("customerName");
 const invoiceDateInput = document.getElementById("invoiceDateInput");
 (function setDefaultInvoiceDate() {
@@ -495,13 +495,33 @@ function buildInvoiceFromCart() {
   return invoice;
 }
 
-printInvoiceBtn.addEventListener("click", () => {
+function formatInvoiceForWhatsApp(invoice) {
+  const lines = [
+    "فاتورة مكتبة النصر — دوما",
+    `رقم الفاتورة: ${invoice.number}`,
+    `التاريخ: ${invoice.dateLabel}`
+  ];
+
+  if (invoice.customer) lines.push(`الزبون: ${invoice.customer}`);
+  lines.push("", "المنتجات:");
+  invoice.items.forEach((item, index) => {
+    lines.push(`${index + 1}. ${item.name} × ${item.qty} = ${item.qty * item.price} ل.س`);
+  });
+  lines.push("", `الإجمالي: ${invoice.total} ل.س`);
+  if (invoice.notes) lines.push(`ملاحظات: ${invoice.notes}`);
+  lines.push("", "مكتبة النصر — 0954 672 747");
+  return lines.join("\n");
+}
+
+shareInvoiceBtn.addEventListener("click", () => {
   if (Object.keys(cart).length === 0) {
     alert("السلة فارغة، أضف منتجات أولاً.");
     return;
   }
-  buildInvoiceFromCart();
-  window.print();
+  const invoice = buildInvoiceFromCart();
+  const message = formatInvoiceForWhatsApp(invoice);
+  const whatsappUrl = `https://wa.me/963954672747?text=${encodeURIComponent(message)}`;
+  window.open(whatsappUrl, "_blank", "noopener,noreferrer");
 });
 
 // ===== أحداث عامة =====
