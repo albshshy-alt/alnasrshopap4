@@ -68,26 +68,7 @@
 
     <div id="cartItems" class="cart-items"></div>
 
-    <div class="discount-field">
-      <label for="discountValue">حسم الفاتورة (اختياري)</label>
-      <div class="discount-row">
-        <input type="number" id="discountValue" min="0" placeholder="0" />
-        <select id="discountType">
-          <option value="percent">%</option>
-          <option value="amount">ل.س</option>
-        </select>
-      </div>
-    </div>
-
     <div class="cart-summary">
-      <div class="cart-summary-row">
-        <span>المجموع الفرعي</span>
-        <span id="cartSubtotal">0 ل.س</span>
-      </div>
-      <div class="cart-summary-row discount-line" id="cartDiscountRow">
-        <span>الحسم</span>
-        <span id="cartDiscountAmount">0 ل.س</span>
-      </div>
       <div class="cart-total">
         <span>المجموع</span>
         <strong id="cartTotal">0 ل.س</strong>
@@ -147,14 +128,6 @@
 
   <div class="invoice-summary">
     <div class="invoice-summary-col">
-      <div class="invoice-summary-row">
-        <span>المجموع الفرعي</span>
-        <b id="invSubtotal">0 ل.س</b>
-      </div>
-      <div class="invoice-summary-row" id="invDiscountRow">
-        <span id="invDiscountLabel">الحسم</span>
-        <b id="invDiscountAmount">0 ل.س</b>
-      </div>
       <div class="invoice-summary-row invoice-summary-total">
         <span>المجموع الكلي</span>
         <b id="invTotal">0 ل.س</b>

@@ -285,11 +285,6 @@ const invoiceDateInput = document.getElementById("invoiceDateInput");
   invoiceDateInput.value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 })();
 const invoiceNotesInput = document.getElementById("invoiceNotes");
-const discountValueInput = document.getElementById("discountValue");
-const discountTypeSelect = document.getElementById("discountType");
-const cartSubtotalEl = document.getElementById("cartSubtotal");
-const cartDiscountRowEl = document.getElementById("cartDiscountRow");
-const cartDiscountAmountEl = document.getElementById("cartDiscountAmount");
 
 // ===== التبويبات =====
 function renderTabs() {
@@ -393,31 +388,10 @@ function getCartSubtotal() {
   return Object.values(cart).reduce((sum, i) => sum + i.qty * i.price, 0);
 }
 
-// يحسب قيمة الحسم الفعلية بالليرة بناءً على النوع المختار (نسبة % أو مبلغ ثابت)
-// مع منع أي قيمة سالبة أو حسم يتجاوز المجموع الفرعي
-function getDiscountAmount(subtotal) {
-  const rawValue = parseFloat(discountValueInput.value);
-  if (!rawValue || rawValue <= 0) return 0;
-
-  if (discountTypeSelect.value === "amount") {
-    return Math.min(rawValue, subtotal);
-  }
-  // نسبة مئوية، بحد أقصى 100%
-  const pct = Math.min(rawValue, 100);
-  return Math.round((subtotal * pct) / 100);
-}
-
-function getCartTotal() {
-  const subtotal = getCartSubtotal();
-  return subtotal - getDiscountAmount(subtotal);
-}
-
 function updateCartUI() {
   const items = Object.values(cart);
   const totalQty = items.reduce((sum, i) => sum + i.qty, 0);
-  const subtotal = getCartSubtotal();
-  const discountAmount = getDiscountAmount(subtotal);
-  const totalPrice = subtotal - discountAmount;
+  const totalPrice = getCartSubtotal();
 
   if (cartCount.textContent !== String(totalQty)) {
     cartCount.classList.remove("bump");
@@ -425,13 +399,6 @@ function updateCartUI() {
     cartCount.classList.add("bump");
   }
   cartCount.textContent = totalQty;
-  cartSubtotalEl.textContent = `${subtotal} ل.س`;
-  if (discountAmount > 0) {
-    cartDiscountRowEl.classList.add("show");
-    cartDiscountAmountEl.textContent = `- ${discountAmount} ل.س`;
-  } else {
-    cartDiscountRowEl.classList.remove("show");
-  }
   cartTotalEl.textContent = `${totalPrice} ل.س`;
 
   if (items.length === 0) {
@@ -498,24 +465,6 @@ function fillInvoiceDOM(invoice) {
     </tr>
   `).join("");
 
-  // المجموع الفرعي: نستخدم القيمة المخزّنة إن وجدت، وإلا نعتبره مساويًا
-  // للمجموع الكلي (للتوافق مع الفواتير القديمة المحفوظة قبل إضافة الحسم)
-  const subtotal = invoice.subtotal != null ? invoice.subtotal : invoice.total;
-  document.getElementById("invSubtotal").textContent = `${subtotal} ل.س`;
-
-  const discountRow = document.getElementById("invDiscountRow");
-  const discountAmount = invoice.discountAmount || 0;
-  if (discountAmount > 0) {
-    const label = invoice.discountType === "percent"
-      ? `الحسم (${invoice.discountValue}%)`
-      : "الحسم";
-    document.getElementById("invDiscountLabel").textContent = label;
-    document.getElementById("invDiscountAmount").textContent = `- ${discountAmount} ل.س`;
-    discountRow.classList.add("show");
-  } else {
-    discountRow.classList.remove("show");
-  }
-
   document.getElementById("invTotal").textContent = `${invoice.total} ل.س`;
 }
 
@@ -523,11 +472,7 @@ function buildInvoiceFromCart() {
   const items = Object.values(cart).map(i => ({
     name: i.name, qty: i.qty, price: i.price
   }));
-  const subtotal = getCartSubtotal();
-  const discountAmount = getDiscountAmount(subtotal);
-  const discountType = discountAmount > 0 ? discountTypeSelect.value : null;
-  const discountValue = discountAmount > 0 ? (parseFloat(discountValueInput.value) || 0) : 0;
-  const total = subtotal - discountAmount;
+  const total = getCartSubtotal();
   const customer = customerNameInput.value.trim();
   const notes = invoiceNotesInput.value.trim();
   let now = new Date();
@@ -543,10 +488,6 @@ function buildInvoiceFromCart() {
     customer,
     notes,
     items,
-    subtotal,
-    discountType,
-    discountValue,
-    discountAmount,
     total
   };
 
@@ -559,7 +500,7 @@ printInvoiceBtn.addEventListener("click", () => {
     alert("السلة فارغة، أضف منتجات أولاً.");
     return;
   }
-  const invoice = buildInvoiceFromCart();
+  buildInvoiceFromCart();
   window.print();
 });
 
@@ -572,14 +513,10 @@ cartOverlay.addEventListener("click", (e) => {
 });
 clearCartBtn.addEventListener("click", () => {
   cart = {};
-  discountValueInput.value = "";
-  discountTypeSelect.value = "percent";
   invoiceNotesInput.value = "";
   updateCartUI();
 });
 
-discountValueInput.addEventListener("input", updateCartUI);
-discountTypeSelect.addEventListener("change", updateCartUI);
 
 // ===== تشغيل أولي =====
 renderTabs();
