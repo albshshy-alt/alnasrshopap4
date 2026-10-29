@@ -537,6 +537,152 @@ clearCartBtn.addEventListener("click", () => {
   updateCartUI();
 });
 
+// ===== بطاقات أقسام المكتبة =====
+document.querySelectorAll("[data-open-category]").forEach(button => {
+  button.addEventListener("click", () => {
+    const requestedCategory = button.dataset.openCategory;
+    activeCategory = categories.includes(requestedCategory) ? requestedCategory : "الكل";
+    searchInput.value = "";
+    renderTabs();
+    renderCatalog();
+    document.getElementById("priceHeading").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+});
+
+document.querySelectorAll("[data-ask-category]").forEach(button => {
+  button.addEventListener("click", () => {
+    const category = button.dataset.askCategory;
+    const message = encodeURIComponent(`مرحباً، أريد الاستفسار عن قسم ${category} والأصناف المتوفرة والأسعار في مكتبة النصر.`);
+    window.open(`https://wa.me/963954672747?text=${message}`, "_blank", "noopener,noreferrer");
+  });
+});
+
+// ===== مساعد محلي محدود بمعلومات مكتبة النصر =====
+function normalizeLibraryQuestion(value) {
+  return String(value || "").toLowerCase()
+    .replace(/[\u064B-\u065F\u0670\u0640]/g, "")
+    .replace(/[أإآ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه")
+    .replace(/[^\u0600-\u06FFa-z0-9\s]/gi, " ").replace(/\s+/g, " ").trim();
+}
+
+function libraryQuestionHas(question, phrases) {
+  return phrases.some(phrase => question.includes(normalizeLibraryQuestion(phrase)));
+}
+
+function answerLibraryQuestion(rawQuestion) {
+  const question = normalizeLibraryQuestion(rawQuestion);
+  const mapsLink = "https://www.google.com/maps/search/?api=1&query=HC93%2B22W%2C%20Douma%2C%20Syria";
+  const websiteLink = "https://sites.google.com/view/al-nasr-bookstore/%D8%A7%D9%84%D8%B5%D9%81%D8%AD%D8%A9-%D8%A7%D9%84%D8%B1%D8%A6%D9%8A%D8%B3%D9%8A%D8%A9?authuser=0";
+  const outOfScope = "أنا مساعد مكتبة النصر، وأجيب فقط عن معلومات المكتبة ومنتجاتها وأسعار القائمة وعنوانها وطرق التواصل. لا أملك معلومة مؤكدة عن هذا السؤال؛ تواصل معنا على 0954 672 747.";
+  if (!question) return "اكتب سؤالك عن مكتبة النصر لأساعدك.";
+
+  if (libraryQuestionHas(question, ["مرحبا", "اهلا", "السلام عليكم", "صباح الخير", "مساء الخير"])) {
+    return "أهلاً وسهلاً بك في مكتبة النصر. اسألني عن المنتجات، الأسعار المدرجة، العنوان أو طرق التواصل.";
+  }
+
+  if (libraryQuestionHas(question, ["موقعنا الالكتروني", "موقعكم الالكتروني", "الموقع الالكتروني", "رابط الموقع", "رابط موقعكم", "رابط موقع المكتبه", "رابط موقع مكتبه النصر", "رابط صفحتكم", "google sites", "موقع مكتبه النصر الالكتروني", "الموقع الرسمي لمكتبه النصر", "صفحتكم الالكترونيه"])) {
+    return `رابط الموقع الإلكتروني لمكتبة النصر: ${websiteLink}`;
+  }
+
+  const asksAboutLocation = libraryQuestionHas(question, ["عنوان المكتبه", "عنواننا", "عنوانكم", "اين المكتبه", "وين المكتبه", "اين مكتبه النصر", "وين مكتبه النصر", "اين مكتبتكم", "وين مكتبتكم", "اين مكانكم", "وين مكانكم", "خريطه المكتبه", "موقع المكتبه", "موقع مكتبه النصر", "موقعكم", "موقعنا على الخريطه", "hc93", "plus code", "شارع الجامعه العربيه", "كيف اصل للمكتبه", "كيف اصل لمكتبتكم"]);
+  if (asksAboutLocation) {
+    return `عنوان مكتبة النصر: شارع الجامعة العربية، دوما، ريف دمشق، سوريا. رمز الموقع على الخريطة HC93+22W. افتح الخرائط: ${mapsLink}`;
+  }
+
+  const asksAboutContact = libraryQuestionHas(question, ["رقم الهاتف", "رقمكم", "رقمنا", "رقم مكتبة النصر", "تواصل مع المكتبه", "كيف اتواصل معكم", "واتساب", "هاتف المكتبه", "اتصال بالمكتبه"]);
+  if (asksAboutContact) {
+    return "للتواصل مع مكتبة النصر اتصل على 0954 672 747، أو راسلنا عبر واتساب على الرقم نفسه.";
+  }
+
+  if (libraryQuestionHas(question, ["من نحن", "عن المكتبه", "عرفني عن المكتبه", "نبذه عن المكتبه", "معلومات عن المكتبه"])) {
+    return "مكتبة النصر مكتبة في دوما، ريف دمشق، شارع الجامعة العربية. تشمل أقسامها القرطاسية والمكياج والهدايا والعطورات والألعاب والطباعة والمستلزمات المنزلية.";
+  }
+
+  const categoryAnswers = [
+    { keys: ["قرطاسيه", "دفاتر", "اقلام", "ادوات مدرسيه"], name: "القرطاسية" },
+    { keys: ["مكياج", "مكياج"], name: "المكياج" },
+    { keys: ["هدايا", "هديه"], name: "الهدايا" },
+    { keys: ["عطورات", "عطور", "عطر"], name: "العطورات" },
+    { keys: ["العاب", "لعبه"], name: "الألعاب" },
+    { keys: ["طباعه", "طباعه"], name: "الطباعة" },
+    { keys: ["مستلزمات منزليه", "ادوات منزليه"], name: "المستلزمات المنزلية" }
+  ];
+  const matchedCategory = categoryAnswers.find(category => libraryQuestionHas(question, category.keys));
+  const hasStoreCategoryContext = question.length <= 12 || libraryQuestionHas(question, ["عندكم", "عندكن", "لديكم", "تبيعون", "قسم", "منتجات", "متوفر", "اسعار", "سعر", "هل يوجد", "هل لديكم"]);
+  if (matchedCategory && hasStoreCategoryContext) {
+    if (["المكياج", "العطورات", "الألعاب"].includes(matchedCategory.name)) {
+      return `نعم، ${matchedCategory.name} من أقسام مكتبة النصر. اسألنا عبر واتساب عن الأنواع المتوفرة والأسعار الحالية على 0954 672 747.`;
+    }
+    return `${matchedCategory.name} من أقسام مكتبة النصر. تصفّح المنتجات والأسعار المدرجة في قائمة الأسعار، وتواصل معنا للتأكد من التوفر والسعر الحالي.`;
+  }
+
+  if (libraryQuestionHas(question, ["اقسام المنتجات", "شو بتبيعوا", "ماذا تبيعون", "منتجاتكم", "اقسامكم", "المنتجات المتوفره", "شو عندكم"])) {
+    return "تشمل أقسام مكتبة النصر: القرطاسية، المكياج، الهدايا، العطورات، الألعاب، الطباعة والمستلزمات المنزلية. بعض الأسعار والأصناف تُعرض في قائمة الأسعار، ويمكن الاستفسار عن المتوفر عبر واتساب.";
+  }
+
+  const wantsPrice = libraryQuestionHas(question, ["سعر", "اسعار", "ثمن", "بكم", "قديش", "تكلفه"]);
+  if (wantsPrice) {
+    const matchingProduct = products
+      .filter(product => question.includes(normalizeLibraryQuestion(product.name)))
+      .sort((a, b) => normalizeLibraryQuestion(b.name).length - normalizeLibraryQuestion(a.name).length)[0];
+    if (matchingProduct) {
+      return `السعر المدرج لـ${matchingProduct.name} هو ${matchingProduct.price} ل.س. الأسعار قد تتغير، لذلك يرجى التأكد من مكتبة النصر قبل الشراء.`;
+    }
+    if (!libraryQuestionHas(question, ["قائمه الاسعار", "اسعار المنتجات", "اسعاركم", "سعر المنتجات", "سعر دفتر", "سعر دفاتر", "سعر قلم", "سعر قرطاسيه", "سعر الهدايا", "اسعار مكتبه النصر"])) {
+      return outOfScope;
+    }
+    return "تجد الأسعار المتاحة في قائمة الأسعار بالموقع. لم أجد صنفاً محدداً في سؤالك؛ اكتب اسم المنتج كما يظهر في القائمة أو تواصل معنا لمعرفة السعر والتوفر.";
+  }
+
+  if (libraryQuestionHas(question, ["فاتوره", "السله", "طلب", "شراء"])) {
+    return "يمكنك إضافة المنتجات إلى سلة المشتريات ثم الضغط على «مشاركة الفاتورة عبر واتساب». ستُفتح رسالة جاهزة لمكتبة النصر لتراجعها وترسلها.";
+  }
+
+  return outOfScope;
+}
+
+const assistantToggle = document.getElementById("assistantToggle");
+const assistantPanel = document.getElementById("assistantPanel");
+const assistantClose = document.getElementById("assistantClose");
+const assistantForm = document.getElementById("assistantForm");
+const assistantInput = document.getElementById("assistantInput");
+const assistantLog = document.getElementById("assistantLog");
+
+function appendAssistantMessage(text, type) {
+  const message = document.createElement("div");
+  message.className = `assistant-message ${type === "user" ? "assistant-message-user" : "assistant-message-bot"}`;
+  message.textContent = text;
+  assistantLog.appendChild(message);
+  assistantLog.scrollTop = assistantLog.scrollHeight;
+}
+
+function submitAssistantQuestion(text) {
+  const question = String(text || "").trim().slice(0, 240);
+  if (!question) return;
+  appendAssistantMessage(question, "user");
+  appendAssistantMessage(answerLibraryQuestion(question), "bot");
+}
+
+assistantToggle.addEventListener("click", () => {
+  const willOpen = assistantPanel.hidden;
+  assistantPanel.hidden = !willOpen;
+  assistantToggle.setAttribute("aria-expanded", String(willOpen));
+  if (willOpen) assistantInput.focus();
+});
+assistantClose.addEventListener("click", () => {
+  assistantPanel.hidden = true;
+  assistantToggle.setAttribute("aria-expanded", "false");
+  assistantToggle.focus();
+});
+assistantForm.addEventListener("submit", event => {
+  event.preventDefault();
+  submitAssistantQuestion(assistantInput.value);
+  assistantInput.value = "";
+  assistantInput.focus();
+});
+document.querySelectorAll("[data-assistant-question]").forEach(button => {
+  button.addEventListener("click", () => submitAssistantQuestion(button.dataset.assistantQuestion));
+});
 
 // ===== تشغيل أولي =====
 renderTabs();

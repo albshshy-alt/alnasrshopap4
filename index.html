@@ -3,10 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>مكتبة النصر - دوما</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Reem+Kufi:wght@500;700&family=Tajawal:wght@300;400;500;700;900&display=swap" rel="stylesheet">
 <meta name="theme-color" content="#1f3a2e">
+<meta name="description" content="مكتبة النصر في دوما، ريف دمشق. قرطاسية وهدايا وطباعة ومستلزمات متنوعة، مع قائمة أسعار ومشاركة الفاتورة عبر واتساب.">
+<title>مكتبة النصر | دوما</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Reem+Kufi:wght@500;700&family=Tajawal:wght@300;400;500;700;900&display=swap" rel="stylesheet">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%231f3a2e' stroke='%23c9a24a' stroke-width='3'/%3E%3Ctext x='32' y='44' font-size='36' text-anchor='middle' fill='%23f1e9d8' font-family='serif' font-weight='700'%3E%D9%86%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="style.css">
 </head>
@@ -14,56 +16,176 @@
 
 <header class="site-header no-print">
   <div class="wrap header-inner">
-    <div class="brand">
-      <div class="brand-mark">ن</div>
-      <div>
-        <div class="brand-name">مكتبة النصر</div>
-        <div class="brand-sub">دوما</div>
-      </div>
-    </div>
+    <a class="brand" href="#top" aria-label="مكتبة النصر — الصفحة الرئيسية">
+      <span class="brand-mark">ن</span>
+      <span>
+        <span class="brand-name">مكتبة النصر</span>
+        <span class="brand-sub">دوما · ريف دمشق</span>
+      </span>
+    </a>
+    <nav class="main-nav" aria-label="التنقل الرئيسي">
+      <a href="#products">منتجاتنا</a>
+      <a href="#about">من نحن</a>
+      <a href="#location">موقعنا</a>
+      <a href="https://sites.google.com/view/al-nasr-bookstore/%D8%A7%D9%84%D8%B5%D9%81%D8%AD%D8%A9-%D8%A7%D9%84%D8%B1%D8%A6%D9%8A%D8%B3%D9%8A%D8%A9?authuser=0" target="_blank" rel="noopener noreferrer">موقعنا الإلكتروني</a>
+    </nav>
     <div class="header-actions">
-      <button id="cartBtn" class="cart-btn">
+      <button id="cartBtn" class="cart-btn" type="button">
         سلة المشتريات <span id="cartCount">0</span>
       </button>
     </div>
   </div>
 </header>
 
-<section class="page-head hero no-print">
-  <div class="wrap">
-    <div class="kicker">قائمة الأسعار</div>
-    <h1>كل ما تحتاجه للمدرسة والمنزل والمناسبات</h1>
-    <p>اختر المنتجات، أضفها للسلة، وشارك فاتورتك عبر واتساب.</p>
-
-    <div class="controls">
-      <input type="text" id="searchInput" placeholder="ابحث عن منتج..." />
-      <div class="tabs" id="tabs"></div>
+<section class="page-head hero no-print" id="top">
+  <div class="wrap hero-inner">
+    <div class="kicker">وجهتك للتسوق في دوما</div>
+    <h1>كل احتياجاتك اليومية في مكان واحد</h1>
+    <p>قرطاسية، مكياج، هدايا، عطورات، ألعاب، طباعة ومستلزمات منزلية — أهلاً بك في مكتبة النصر.</p>
+    <div class="hero-actions">
+      <a class="hero-action hero-action-primary" href="#products">تصفّح الأقسام</a>
+      <a class="hero-action hero-action-secondary" href="#location">اعثر علينا</a>
     </div>
 
+    <div class="controls" aria-label="البحث في قائمة الأسعار">
+      <input type="search" id="searchInput" placeholder="ابحث عن منتج في قائمة الأسعار..." aria-label="ابحث عن منتج">
+      <div class="tabs" id="tabs" aria-label="تصفية قائمة الأسعار حسب الفئة"></div>
+    </div>
   </div>
 </section>
 
 <main class="wrap no-print" id="main">
-  <div id="catalog"></div>
+  <section class="category-section" id="products" aria-labelledby="productsHeading">
+    <div class="section-heading">
+      <span class="section-kicker">تسوّق بسهولة</span>
+      <h2 id="productsHeading">أقسام مكتبة النصر</h2>
+      <p>اختر قسماً لعرض المنتجات المدرجة في قائمة الأسعار، أو اسألنا عن الأصناف المتوفرة.</p>
+    </div>
+    <div class="category-grid">
+      <button class="category-card" type="button" data-open-category="الكل">
+        <span class="category-card-mark">ق</span><span class="category-card-title">قرطاسية</span>
+        <span class="category-card-desc">دفاتر وأقلام وأدوات مدرسية ومكتبية</span><span class="category-card-link">تصفّح المنتجات</span>
+      </button>
+      <button class="category-card" type="button" data-ask-category="مكياج">
+        <span class="category-card-mark">م</span><span class="category-card-title">مكياج</span>
+        <span class="category-card-desc">اسألنا عن الأصناف المتوفرة حالياً</span><span class="category-card-link">استفسر عبر واتساب</span>
+      </button>
+      <button class="category-card" type="button" data-open-category="هدايا">
+        <span class="category-card-mark">ه</span><span class="category-card-title">هدايا</span>
+        <span class="category-card-desc">أفكار وهدايا للمناسبات</span><span class="category-card-link">تصفّح المنتجات</span>
+      </button>
+      <button class="category-card" type="button" data-ask-category="عطورات">
+        <span class="category-card-mark">ع</span><span class="category-card-title">عطورات</span>
+        <span class="category-card-desc">اسألنا عن الأنواع والأسعار الحالية</span><span class="category-card-link">استفسر عبر واتساب</span>
+      </button>
+      <button class="category-card" type="button" data-ask-category="ألعاب">
+        <span class="category-card-mark">ل</span><span class="category-card-title">ألعاب</span>
+        <span class="category-card-desc">اسألنا عن الألعاب المتوفرة</span><span class="category-card-link">استفسر عبر واتساب</span>
+      </button>
+      <button class="category-card" type="button" data-open-category="الطباعة">
+        <span class="category-card-mark">ط</span><span class="category-card-title">طباعة</span>
+        <span class="category-card-desc">خدمات طباعة مدرجة في قائمة الأسعار</span><span class="category-card-link">تصفّح الأسعار</span>
+      </button>
+      <button class="category-card" type="button" data-open-category="مستلزمات منزلية">
+        <span class="category-card-mark">م</span><span class="category-card-title">مستلزمات منزلية</span>
+        <span class="category-card-desc">أدوات واختيارات للمنزل</span><span class="category-card-link">تصفّح المنتجات</span>
+      </button>
+    </div>
+
+    <div class="store-shortcuts">
+      <a class="store-shortcut location-shortcut" href="https://www.google.com/maps/search/?api=1&amp;query=HC93%2B22W%2C%20Douma%2C%20Syria" target="_blank" rel="noopener noreferrer">
+        <span class="shortcut-mark" aria-hidden="true">⌖</span>
+        <span><strong>زر مكتبة النصر</strong><small>HC93+22W · دوما، سوريا</small></span>
+        <span class="shortcut-arrow" aria-hidden="true">←</span>
+      </a>
+      <a class="store-shortcut website-shortcut" href="https://sites.google.com/view/al-nasr-bookstore/%D8%A7%D9%84%D8%B5%D9%81%D8%AD%D8%A9-%D8%A7%D9%84%D8%B1%D8%A6%D9%8A%D8%B3%D9%8A%D8%A9?authuser=0" target="_blank" rel="noopener noreferrer">
+        <span class="shortcut-mark" aria-hidden="true">↗</span>
+        <span><strong>موقع مكتبة النصر الإلكتروني</strong><small>افتح صفحتنا الرسمية على Google Sites</small></span>
+        <span class="shortcut-arrow" aria-hidden="true">←</span>
+      </a>
+    </div>
+  </section>
+
+  <section class="price-section" id="price-list" aria-labelledby="priceHeading">
+    <div class="section-heading section-heading-compact">
+      <span class="section-kicker">قائمة الأسعار</span>
+      <h2 id="priceHeading">منتجات متوفرة في القائمة</h2>
+      <p>الأسعار المعروضة قابلة للتغيير؛ تواصل معنا للتأكد من السعر والتوفر.</p>
+    </div>
+    <div id="catalog"></div>
+  </section>
+
+  <section class="store-details" aria-label="معلومات مكتبة النصر">
+    <article class="info-card about-card" id="about">
+      <span class="section-kicker">حكايتنا ومكاننا</span>
+      <h2>من نحن</h2>
+      <p>مكتبة النصر في سوريا، ريف دمشق، مدينة دوما، شارع الجامعة العربية.</p>
+      <p>نوفر لزبائننا قرطاسية ومكياجاً وهدايا وعطورات وألعاباً وخدمات طباعة ومستلزمات منزلية.</p>
+      <div class="about-actions">
+        <a class="detail-button detail-button-primary" href="https://sites.google.com/view/al-nasr-bookstore/%D8%A7%D9%84%D8%B5%D9%81%D8%AD%D8%A9-%D8%A7%D9%84%D8%B1%D8%A6%D9%8A%D8%B3%D9%8A%D8%A9?authuser=0" target="_blank" rel="noopener noreferrer">الموقع الإلكتروني</a>
+        <a class="detail-button" href="https://wa.me/963954672747" target="_blank" rel="noopener noreferrer">تواصل معنا</a>
+      </div>
+    </article>
+
+    <article class="info-card location-card" id="location">
+      <span class="section-kicker">نرحب بزيارتكم</span>
+      <h2>موقعنا على الخريطة</h2>
+      <p class="location-address">شارع الجامعة العربية، دوما، ريف دمشق، سوريا</p>
+      <div class="map-code" dir="ltr">HC93+22W</div>
+      <a class="detail-button detail-button-primary map-button" href="https://www.google.com/maps/search/?api=1&amp;query=HC93%2B22W%2C%20Douma%2C%20Syria" target="_blank" rel="noopener noreferrer">
+        افتح الموقع في خرائط Google <span aria-hidden="true">↗</span>
+      </a>
+      <a class="location-secondary" href="tel:0954672747" dir="ltr">0954 672 747</a>
+    </article>
+  </section>
 </main>
 
 <footer class="site-footer no-print">
   <div class="wrap">
     <div class="footer-contact">
-      <a class="contact-btn" href="tel:0954672747" dir="ltr">📞 0954 672 747</a>
-      <a class="contact-btn whatsapp" href="https://wa.me/963954672747" target="_blank" rel="noopener">تواصل عبر واتساب</a>
+      <a class="contact-btn" href="tel:0954672747" dir="ltr">اتصال هاتفي · 0954 672 747</a>
+      <a class="contact-btn whatsapp" href="https://wa.me/963954672747" target="_blank" rel="noopener noreferrer">تواصل عبر واتساب</a>
+      <a class="contact-btn" href="https://sites.google.com/view/al-nasr-bookstore/%D8%A7%D9%84%D8%B5%D9%81%D8%AD%D8%A9-%D8%A7%D9%84%D8%B1%D8%A6%D9%8A%D8%B3%D9%8A%D8%A9?authuser=0" target="_blank" rel="noopener noreferrer">الموقع الإلكتروني</a>
     </div>
-    <p>مكتبة النصر — دوما. الأسعار قابلة للتغيير دون إشعار مسبق.</p>
+    <p>مكتبة النصر · شارع الجامعة العربية · دوما، ريف دمشق</p>
+    <p>الأسعار قابلة للتغيير دون إشعار مسبق.</p>
     <p class="copyright">جميع الحقوق محفوظة لدى Yusuf elbeses ©</p>
   </div>
 </footer>
 
+<div class="assistant-widget no-print">
+  <button id="assistantToggle" class="assistant-toggle" type="button" aria-controls="assistantPanel" aria-expanded="false">
+    <span class="assistant-toggle-mark" aria-hidden="true">ن</span><span>اسأل مساعد النصر</span>
+  </button>
+  <section id="assistantPanel" class="assistant-panel" aria-label="مساعد مكتبة النصر" hidden>
+    <div class="assistant-header">
+      <span class="assistant-avatar" aria-hidden="true">ن</span>
+      <span class="assistant-heading"><strong>مساعد مكتبة النصر</strong><small>معلومات المكتبة فقط</small></span>
+      <button id="assistantClose" class="assistant-close" type="button" aria-label="إغلاق المساعد">×</button>
+    </div>
+    <div id="assistantLog" class="assistant-log" role="log" aria-live="polite" aria-relevant="additions">
+      <div class="assistant-message assistant-message-bot">أهلاً بك! اسألني عن أقسام المكتبة، الأسعار المدرجة، العنوان أو موقعنا الإلكتروني.</div>
+    </div>
+    <div class="assistant-suggestions" aria-label="أسئلة مقترحة">
+      <button type="button" data-assistant-question="ما أقسام المنتجات؟">أقسام المنتجات</button>
+      <button type="button" data-assistant-question="أين موقع المكتبة؟">عنوان المكتبة</button>
+      <button type="button" data-assistant-question="ما موقعكم الإلكتروني؟">الموقع الإلكتروني</button>
+    </div>
+    <form id="assistantForm" class="assistant-form">
+      <label class="visually-hidden" for="assistantInput">اكتب سؤالك عن مكتبة النصر</label>
+      <input id="assistantInput" type="text" maxlength="240" placeholder="اسأل عن مكتبة النصر..." autocomplete="off" required>
+      <button type="submit" aria-label="إرسال السؤال">إرسال</button>
+    </form>
+    <p class="assistant-disclaimer">مساعد محلي يجيب من معلومات مكتبة النصر المتاحة فقط.</p>
+  </section>
+</div>
+
 <!-- سلة المشتريات -->
 <div id="cartOverlay" class="cart-overlay no-print">
-  <div class="cart-panel">
+  <div class="cart-panel" role="dialog" aria-modal="true" aria-labelledby="cartTitle">
     <div class="cart-panel-head">
-      <h3>سلة المشتريات</h3>
-      <button id="closeCart" class="close-btn">×</button>
+      <h3 id="cartTitle">سلة المشتريات</h3>
+      <button id="closeCart" class="close-btn" type="button" aria-label="إغلاق السلة">×</button>
     </div>
 
     <div id="cartItems" class="cart-items"></div>
@@ -77,12 +199,12 @@
 
     <div class="customer-field">
       <label for="customerName">اسم الزبون (اختياري)</label>
-      <input type="text" id="customerName" placeholder="مثال: أبو محمد" />
+      <input type="text" id="customerName" placeholder="مثال: أبو محمد">
     </div>
 
     <div class="customer-field">
       <label for="invoiceDateInput">تاريخ الفاتورة</label>
-      <input type="date" id="invoiceDateInput" />
+      <input type="date" id="invoiceDateInput">
     </div>
 
     <div class="customer-field">
@@ -91,9 +213,9 @@
     </div>
 
     <div class="cart-actions">
-      <button id="shareInvoiceBtn" class="btn-primary-small">مشاركة الفاتورة عبر واتساب</button>
+      <button id="shareInvoiceBtn" class="btn-primary-small" type="button">مشاركة الفاتورة عبر واتساب</button>
       <p class="share-hint">ستُفتح محادثة مكتبة النصر على الرقم 0954 672 747. اضغط إرسال في واتساب لإتمام المشاركة.</p>
-      <button id="clearCart" class="btn-ghost-small">تفريغ السلة</button>
+      <button id="clearCart" class="btn-ghost-small" type="button">تفريغ السلة</button>
     </div>
   </div>
 </div>
@@ -117,12 +239,7 @@
 
   <table class="invoice-table">
     <thead>
-      <tr>
-        <th>المنتج</th>
-        <th>الكمية</th>
-        <th>السعر</th>
-        <th>الإجمالي</th>
-      </tr>
+      <tr><th>المنتج</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th></tr>
     </thead>
     <tbody id="invoiceBody"></tbody>
   </table>
@@ -137,8 +254,7 @@
   </div>
 
   <div class="invoice-notes" id="invNotesBox">
-    <span>ملاحظات:</span>
-    <p id="invNotes"></p>
+    <span>ملاحظات:</span><p id="invNotes"></p>
   </div>
 
   <div class="invoice-footer">
