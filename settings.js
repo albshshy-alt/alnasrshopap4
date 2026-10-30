@@ -150,6 +150,12 @@
     "صفحة": "Page"
   };
 
+  const TURKISH = window.NASR_TRANSLATIONS_TR || {};
+  const productTranslationsBySource = Object.values(window.NASR_PRODUCT_TRANSLATIONS || {}).reduce((lookup, row) => {
+    if (row.source) lookup[row.source] = row;
+    return lookup;
+  }, {});
+
   const CATEGORY_EN = {
     "الكل": "All",
     "مكياج": "Makeup",
@@ -171,22 +177,38 @@
   let language = "ar";
   try {
     const savedLanguage = localStorage.getItem(LANGUAGE_KEY);
-    if (savedLanguage === "en" || savedLanguage === "ar") language = savedLanguage;
+    if (["en", "ar", "tr"].includes(savedLanguage)) language = savedLanguage;
   } catch (_) {}
 
   const originalText = new WeakMap();
-  const t = value => language === "en" ? (ENGLISH[value] || value) : value;
-  const currency = () => language === "en" ? "SYP" : "ل.س";
-  const category = value => language === "en" ? (CATEGORY_EN[value] || value) : value;
+  const dictionary = () => language === "en" ? ENGLISH : language === "tr" ? TURKISH : null;
+  const t = value => {
+    const source = String(value == null ? "" : value);
+    const current = dictionary();
+    return current ? (current[source] || source) : source;
+  };
+  const currency = () => language === "ar" ? "ل.س" : "SYP";
+  const category = value => t(value);
+
+  function historyProductName(item) {
+    if (language === "ar") return item.nameAr || item.name || "";
+    const saved = language === "en" ? item.nameEn : item.nameTr;
+    if (saved) return saved;
+    const source = item.nameAr || item.name || "";
+    const translation = productTranslationsBySource[source];
+    const catalogName = language === "en" ? translation?.en : translation?.tr;
+    return catalogName || item.name || "";
+  }
 
   function formatNumber(value) {
     const number = Number(value) || 0;
-    return new Intl.NumberFormat(language === "en" ? "en-US" : "en-US", { maximumFractionDigits: 0 }).format(number);
+    const locale = language === "tr" ? "tr-TR" : "en-US";
+    return new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(number);
   }
 
   function formatDate(timestamp) {
     const date = new Date(Number(timestamp) || Date.now());
-    const locale = language === "en" ? "en-US-u-ca-gregory-nu-latn" : "ar-SY-u-ca-gregory-nu-latn";
+    const locale = language === "en" ? "en-US-u-ca-gregory-nu-latn" : language === "tr" ? "tr-TR-u-ca-gregory-nu-latn" : "ar-SY-u-ca-gregory-nu-latn";
     return new Intl.DateTimeFormat(locale, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(date);
   }
 
@@ -204,18 +226,20 @@
       const source = originalText.get(node);
       const trimmed = source.trim();
       if (!trimmed) continue;
-      const replacement = language === "en" ? ENGLISH[trimmed] : null;
+      const current = dictionary();
+      const replacement = current ? current[trimmed] : null;
       node.nodeValue = replacement ? preserveWhitespace(source, replacement) : source;
     }
   }
 
-  function setAttribute(selector, attribute, arabic, english) {
+  function setAttribute(selector, attribute, arabic, english, turkish) {
     const element = document.querySelector(selector);
-    if (element) element.setAttribute(attribute, language === "en" ? english : arabic);
+    const value = language === "en" ? english : language === "tr" ? (turkish || TURKISH[arabic] || arabic) : arabic;
+    if (element) element.setAttribute(attribute, value);
   }
 
   function translateAttributes() {
-    setAttribute(".brand", "aria-label", "مكتبة النصر — الصفحة الرئيسية", "Nasr Library — Home");
+    setAttribute(".brand", "aria-label", "مكتبة النصر — الصفحة الرئيسية", "Nasr Library — Home", "Nasr Kitabevi — Ana Sayfa");
     setAttribute("#settingsBtn", "aria-label", "الإعدادات", "Settings");
     setAttribute("#closeSettings", "aria-label", "إغلاق الإعدادات", "Close settings");
     setAttribute("#closeCart", "aria-label", "إغلاق السلة", "Close cart");
@@ -233,7 +257,9 @@
 
     const suggestions = language === "en"
       ? ["What departments do you have?", "Where is the library?", "What is your website?"]
-      : ["ما أقسام المنتجات؟", "أين موقع المكتبة؟", "ما موقعكم الإلكتروني؟"];
+      : language === "tr"
+        ? ["Hangi bölümleriniz var?", "Nasr Kitabevi nerede?", "Web siteniz nedir?"]
+        : ["ما أقسام المنتجات؟", "أين موقع المكتبة؟", "ما موقعكم الإلكتروني؟"];
     document.querySelectorAll(".assistant-suggestions [data-assistant-question]").forEach((button, index) => {
       if (suggestions[index]) button.dataset.assistantQuestion = suggestions[index];
     });
@@ -266,7 +292,9 @@
     }
     list.innerHTML = operations.map(operation => {
       const items = Array.isArray(operation.items) ? operation.items : [];
-      const itemList = items.slice(0, 8).map(item => `<li>${escapeHtml(item.name)} × ${escapeHtml(item.qty)}</li>`).join("");
+      const itemList = items.slice(0, 8).map(item => {
+        return `<li>${escapeHtml(historyProductName(item))} × ${escapeHtml(item.qty)}</li>`;
+      }).join("");
       const more = items.length > 8 ? `<li>+ ${formatNumber(items.length - 8)} ${escapeHtml(t("أصناف أخرى"))}</li>` : "";
       const customer = operation.customer ? escapeHtml(operation.customer) : escapeHtml(t("بدون اسم"));
       return `<article class="history-operation">
@@ -287,6 +315,10 @@
       total: Number(invoice.total) || 0,
       items: invoice.items.slice(0, 100).map(item => ({
         name: String(item.name || "").slice(0, 120),
+        nameAr: String(item.nameAr || item.name || "").slice(0, 120),
+        nameEn: String(item.nameEn || "").slice(0, 120),
+        nameTr: String(item.nameTr || "").slice(0, 120),
+        productId: Number.isInteger(Number(item.productId)) ? Number(item.productId) : -1,
         qty: Math.max(1, Number(item.qty) || 1),
         price: Math.max(0, Number(item.price) || 0)
       }))
@@ -312,16 +344,19 @@
   }
 
   function setLanguage(nextLanguage, dispatch = true) {
-    language = nextLanguage === "en" ? "en" : "ar";
+    language = ["en", "tr"].includes(nextLanguage) ? nextLanguage : "ar";
     try { localStorage.setItem(LANGUAGE_KEY, language); } catch (_) {}
     document.documentElement.lang = language;
-    document.documentElement.dir = language === "en" ? "ltr" : "rtl";
+    document.documentElement.dir = language === "ar" ? "rtl" : "ltr";
     document.body.classList.toggle("english-interface", language === "en");
-    document.title = language === "en" ? "Nasr Library | Douma" : "مكتبة النصر | دوما";
+    document.body.classList.toggle("turkish-interface", language === "tr");
+    document.title = language === "en" ? "Nasr Library | Douma" : language === "tr" ? "Nasr Kitabevi | Duma" : "مكتبة النصر | دوما";
     const description = document.querySelector('meta[name="description"]');
     if (description) description.content = language === "en"
       ? "Nasr Library in Douma, Rural Damascus. Stationery, gifts, printing and household products."
-      : "مكتبة النصر في دوما، ريف دمشق. قرطاسية وهدايا وطباعة ومستلزمات متنوعة، مع قائمة أسعار ومشاركة الفاتورة عبر واتساب.";
+      : language === "tr"
+        ? "Duma, Şam kırsalındaki Nasr Kitabevi. Kırtasiye, hediyeler, baskı hizmetleri ve ev gereçleri."
+        : "مكتبة النصر في دوما، ريف دمشق. قرطاسية وهدايا وطباعة ومستلزمات متنوعة، مع قائمة أسعار ومشاركة الفاتورة عبر واتساب.";
     translateTextNodes();
     translateAttributes();
     document.querySelectorAll(".language-option").forEach(button => {
@@ -371,6 +406,7 @@
     saveOperation,
     getLanguage: () => language,
     isEnglish: () => language === "en",
+    isTurkish: () => language === "tr",
     getHistory: readHistory
   };
 

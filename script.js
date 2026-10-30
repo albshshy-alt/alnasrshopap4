@@ -259,7 +259,30 @@ let products = [
   { category: "الحقائب", name: "حقيبة موديل 199", price: 2250 },
 ];
 
-products.forEach((p, i) => (p.id = i));
+products.forEach((p, i) => {
+  p.id = i;
+  const translation = window.NASR_PRODUCT_TRANSLATIONS?.[String(i)] || {};
+  p.nameEn = translation.en || p.name;
+  p.nameTr = translation.tr || p.name;
+  p.noteEn = translation.noteEn || p.note || "";
+  p.noteTr = translation.noteTr || p.note || "";
+});
+
+function escapeHtml(value) {
+  return String(value == null ? "" : value).replace(/[&<>"']/g, character => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;"
+  }[character]));
+}
+
+function productDisplayName(product) {
+  const language = window.NasrSettings.getLanguage();
+  return language === "en" ? product.nameEn : language === "tr" ? product.nameTr : product.name;
+}
+
+function productDisplayNote(product) {
+  const language = window.NasrSettings.getLanguage();
+  return language === "en" ? product.noteEn : language === "tr" ? product.noteTr : (product.note || "");
+}
 
 let categories = [...new Set(products.map(p => p.category))];
 let activeCategory = "الكل";
@@ -310,15 +333,17 @@ function spineColor(cat) {
 
 // ===== الكتالوج =====
 function renderCatalog() {
-  const query = searchInput.value.trim().toLowerCase();
+  const query = normalizeMultilingual(searchInput.value);
   const filtered = products.filter(p => {
     const matchesCategory = activeCategory === "الكل" || p.category === activeCategory;
-    const matchesSearch = p.name.toLowerCase().includes(query);
+    const haystack = [p.name, p.nameEn, p.nameTr, p.note, p.noteEn, p.noteTr]
+      .filter(Boolean).map(normalizeMultilingual).join(" ");
+    const matchesSearch = !query || haystack.includes(query);
     return matchesCategory && matchesSearch;
   });
 
   if (filtered.length === 0) {
-    catalogEl.innerHTML = `<p class="no-results">${window.NasrSettings.t("لا توجد نتائج مطابقة للبحث.")}</p>`;
+    catalogEl.innerHTML = `<p class="no-results">${escapeHtml(window.NasrSettings.t("لا توجد نتائج مطابقة للبحث."))}</p>`;
     return;
   }
 
@@ -330,18 +355,21 @@ function renderCatalog() {
 
   catalogEl.innerHTML = Object.entries(grouped).map(([cat, items]) => `
     <div class="cat-group" style="--spine:${spineColor(cat)}">
-      <h2>${window.NasrSettings.category(cat)} <span class="cat-count">${items.length}</span></h2>
+      <h2>${escapeHtml(window.NasrSettings.category(cat))} <span class="cat-count">${items.length}</span></h2>
       <div class="cat-grid">
-        ${items.map(p => `
+        ${items.map(p => {
+          const name = escapeHtml(productDisplayName(p));
+          const note = productDisplayNote(p);
+          return `
           <div class="product-card">
-            <h4>${p.name}</h4>
-            ${p.note ? `<div class="product-note">${p.note}</div>` : ""}
+            <h4>${name}</h4>
+            ${note ? `<div class="product-note">${escapeHtml(note)}</div>` : ""}
             <div class="product-bottom">
-              <span class="price">${p.price} <small>${window.NasrSettings.currency()}</small></span>
-              <button class="add-btn" data-id="${p.id}">${window.NasrSettings.t("أضف")}</button>
+              <span class="price">${p.price} <small>${escapeHtml(window.NasrSettings.currency())}</small></span>
+              <button class="add-btn" data-id="${p.id}">${escapeHtml(window.NasrSettings.t("أضف"))}</button>
             </div>
-          </div>
-        `).join("")}
+          </div>`;
+        }).join("")}
       </div>
     </div>
   `).join("");
@@ -407,7 +435,7 @@ function updateCartUI() {
 
   cartItemsEl.innerHTML = items.map(i => `
     <div class="cart-item">
-      <span class="cart-item-name">${i.name}</span>
+      <span class="cart-item-name">${escapeHtml(productDisplayName(i))}</span>
       <div class="cart-item-qty">
         <button class="qty-btn" data-id="${i.id}" data-delta="-1">−</button>
         <span>${i.qty}</span>
@@ -431,7 +459,8 @@ function updateCartUI() {
 // ===== التاريخ =====
 // تنسيق ثابت: تقويم ميلادي + أرقام إنجليزية، حتى لا يتغيّر الشهر/اليوم بحسب لغة الجهاز
 function formatInvoiceDate(date) {
-  const locale = window.NasrSettings.isEnglish() ? "en-US-u-ca-gregory-nu-latn" : "ar-SY-u-ca-gregory-nu-latn";
+  const language = window.NasrSettings.getLanguage();
+  const locale = language === "en" ? "en-US-u-ca-gregory-nu-latn" : language === "tr" ? "tr-TR-u-ca-gregory-nu-latn" : "ar-SY-u-ca-gregory-nu-latn";
   return new Intl.DateTimeFormat(locale, {
     year: "numeric", month: "long", day: "numeric"
   }).format(date);
@@ -457,21 +486,26 @@ function fillInvoiceDOM(invoice) {
     notesBox.classList.remove("show");
   }
 
-  document.getElementById("invoiceBody").innerHTML = invoice.items.map(i => `
-    <tr>
-      <td>${i.name}</td>
-      <td>${i.qty}</td>
-      <td>${i.price} ${window.NasrSettings.currency()}</td>
-      <td>${i.qty * i.price} ${window.NasrSettings.currency()}</td>
-    </tr>
-  `).join("");
+  const language = window.NasrSettings.getLanguage();
+  document.getElementById("invoiceBody").innerHTML = invoice.items.map(i => {
+    const name = language === "en" ? (i.nameEn || i.name) : language === "tr" ? (i.nameTr || i.name) : (i.nameAr || i.name);
+    const currency = escapeHtml(window.NasrSettings.currency());
+    return `
+      <tr>
+        <td>${escapeHtml(name)}</td>
+        <td>${escapeHtml(i.qty)}</td>
+        <td>${escapeHtml(i.price)} ${currency}</td>
+        <td>${escapeHtml(i.qty * i.price)} ${currency}</td>
+      </tr>`;
+  }).join("");
 
   document.getElementById("invTotal").textContent = `${invoice.total} ${window.NasrSettings.currency()}`;
 }
 
 function buildInvoiceFromCart() {
   const items = Object.values(cart).map(i => ({
-    name: i.name, qty: i.qty, price: i.price
+    productId: i.id, name: productDisplayName(i), nameAr: i.name,
+    nameEn: i.nameEn, nameTr: i.nameTr, qty: i.qty, price: i.price
   }));
   const total = getCartSubtotal();
   const customer = customerNameInput.value.trim();
@@ -545,20 +579,38 @@ document.querySelectorAll("[data-ask-category]").forEach(button => {
   button.addEventListener("click", () => {
     const category = button.dataset.askCategory;
     const categoryName = window.NasrSettings.category(category);
-    const messageText = window.NasrSettings.isEnglish()
+    const language = window.NasrSettings.getLanguage();
+    const messageText = language === "en"
       ? `Hello, I would like to ask about the ${categoryName} department, available items and prices at Nasr Library.`
-      : `مرحباً، أريد الاستفسار عن قسم ${categoryName} والأصناف المتوفرة والأسعار في مكتبة النصر.`;
+      : language === "tr"
+        ? `Merhaba, Nasr Kitabevi'ndeki ${categoryName} bölümü, ürünler ve fiyatlar hakkında bilgi almak istiyorum.`
+        : `مرحباً، أريد الاستفسار عن قسم ${categoryName} والأصناف المتوفرة والأسعار في مكتبة النصر.`;
     const message = encodeURIComponent(messageText);
     window.open(`https://wa.me/963954672747?text=${message}`, "_blank", "noopener,noreferrer");
   });
 });
 
 // ===== مساعد محلي محدود بمعلومات مكتبة النصر =====
-function normalizeLibraryQuestion(value) {
-  return String(value || "").toLowerCase()
+function normalizeMultilingual(value) {
+  return String(value || "").toLowerCase().normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "").replace(/ı/g, "i")
     .replace(/[\u064B-\u065F\u0670\u0640]/g, "")
     .replace(/[أإآ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه")
     .replace(/[^\u0600-\u06FFa-z0-9\s]/gi, " ").replace(/\s+/g, " ").trim();
+}
+
+function normalizeLibraryQuestion(value) {
+  return normalizeMultilingual(value);
+}
+
+function productMatchesQuestion(rawQuestion, product) {
+  const question = normalizeMultilingual(rawQuestion);
+  return [product.name, product.nameEn, product.nameTr]
+    .filter(Boolean)
+    .some(name => {
+      const candidate = normalizeMultilingual(name);
+      return candidate.length > 1 && question.includes(candidate);
+    });
 }
 
 function libraryQuestionHas(question, phrases) {
@@ -566,8 +618,7 @@ function libraryQuestionHas(question, phrases) {
 }
 
 function answerLibraryQuestionEnglish(rawQuestion) {
-  const question = String(rawQuestion || "").toLowerCase().replace(/[^a-z0-9\u0600-\u06ff\s]/g, " ").replace(/\s+/g, " ").trim();
-  const arabicQuestion = normalizeLibraryQuestion(rawQuestion);
+  const question = normalizeMultilingual(rawQuestion);
   const mapsLink = "https://www.google.com/maps/search/?api=1&query=HC93%2B22W%2C%20Douma%2C%20Syria";
   const websiteLink = "https://sites.google.com/view/al-nasr-bookstore/%D8%A7%D9%84%D8%B5%D9%81%D8%AD%D8%A9-%D8%A7%D9%84%D8%B1%D8%A6%D9%8A%D8%B3%D9%8A%D8%A9?authuser=0";
   if (!question) return "Please ask a question about Nasr Library.";
@@ -578,15 +629,40 @@ function answerLibraryQuestionEnglish(rawQuestion) {
   if (/\b(about|who are you|library)\b/.test(question)) return "Nasr Library is a store in Douma, Rural Damascus, Syria, offering stationery, makeup, gifts, perfumes, toys, printing and home essentials.";
   if (/\b(departments|categories|products|sell|stock|available|offer)\b/.test(question)) return "Our departments include stationery, makeup, gifts, perfumes, toys, printing and home essentials. Ask us on WhatsApp about current availability.";
   if (/\b(price|prices|cost|how much)\b/.test(question)) {
-    const match = products.find(product => arabicQuestion.includes(normalizeLibraryQuestion(product.name)));
-    if (match) return `The listed price for ${match.name} is ${match.price} SYP. Prices can change; please confirm before purchase.`;
-    return "Please search the price list. Product names are currently listed in Arabic; contact us on WhatsApp to confirm price and availability.";
+    const match = products.filter(product => productMatchesQuestion(rawQuestion, product))
+      .sort((a, b) => Math.max(b.name.length, b.nameEn.length, b.nameTr.length) - Math.max(a.name.length, a.nameEn.length, a.nameTr.length))[0];
+    if (match) return `The listed price for ${match.nameEn} is ${match.price} SYP. Prices can change; please confirm before purchase.`;
+    return "Search the price list by product name, or message Nasr Library on WhatsApp to confirm current price and availability.";
   }
   return "I am the Nasr Library assistant and can answer only about the library, listed products and prices, location, and contact details.";
 }
 
+function answerLibraryQuestionTurkish(rawQuestion) {
+  const question = normalizeMultilingual(rawQuestion);
+  const mapsLink = "https://www.google.com/maps/search/?api=1&query=HC93%2B22W%2C%20Douma%2C%20Syria";
+  const websiteLink = "https://sites.google.com/view/al-nasr-bookstore/%D8%A7%D9%84%D8%B5%D9%81%D8%AD%D8%A9-%D8%A7%D9%84%D8%B1%D8%A6%D9%8A%D8%B3%D9%8A%D8%A9?authuser=0";
+  const outOfScope = "Ben Nasr Kitabevi asistanıyım; yalnızca mağazamız, listelenen ürünler ve fiyatlar, konum ve iletişim hakkında bilgi verebilirim. Bu konuda doğrulanmış bilgim yok.";
+  if (!question) return "Lütfen Nasr Kitabevi hakkında bir soru yazın.";
+  if (/\b(merhaba|selam|gunaydin|iyi aksamlar)\b/.test(question)) return "Nasr Kitabevi'ne hoş geldiniz. Ürünler, listedeki fiyatlar, adresimiz veya web sitemiz hakkında soru sorabilirsiniz.";
+  if (/\b(web sitesi|internet sitesi|website|site|link|online)\b/.test(question)) return `Nasr Kitabevi'nin web sitesi: ${websiteLink}`;
+  if (/\b(nerede|konum|adres|harita|yol|duma|douma)\b/.test(question)) return `Nasr Kitabevi, Arap Birliği Caddesi'nde, Duma, Şam kırsalı, Suriye'dedir. Harita kodu: HC93+22W. Harita: ${mapsLink}`;
+  if (/\b(iletisim|telefon|numara|whatsapp|mesaj|ulas)\b/.test(question)) return "Nasr Kitabevi'ne WhatsApp üzerinden 0954 672 747 numarasından ulaşabilirsiniz.";
+  if (/\b(hakkimizda|kimsiniz|magaza|bolum|urunler|satiyorsunuz|satiliyor|kiRtasiye|kirtasiye|makyaj|hediye|parfum|oyuncak|baski)\b/.test(question)) {
+    return "Nasr Kitabevi'nin bölümleri kırtasiye, makyaj, hediyeler, parfümler, oyuncaklar, baskı hizmetleri ve ev gereçleridir. Güncel stok ve fiyatı WhatsApp'tan doğrulayabilirsiniz.";
+  }
+  if (/\b(fiyat|fiyatlar|ucret|ne kadar|kac|tutar)\b/.test(question)) {
+    const match = products.filter(product => productMatchesQuestion(rawQuestion, product))
+      .sort((a, b) => Math.max(b.name.length, b.nameEn.length, b.nameTr.length) - Math.max(a.name.length, a.nameEn.length, a.nameTr.length))[0];
+    if (match) return `${match.nameTr} için listelenen fiyat ${match.price} SYP'dir. Fiyatlar değişebileceğinden satın almadan önce lütfen teyit edin.`;
+    return "Ürün adını fiyat listesinde arayın veya güncel fiyat ve stok bilgisi için Nasr Kitabevi'ne WhatsApp'tan yazın.";
+  }
+  if (/\b(fatura|sepet|siparis|satin alma)\b/.test(question)) return "Ürünleri sepete ekleyin ve 'Faturayı PDF olarak paylaş' düğmesine basın. Android uygulamasında WhatsApp paylaşımını seçebilirsiniz.";
+  return outOfScope;
+}
+
 function answerLibraryQuestion(rawQuestion) {
   if (window.NasrSettings.isEnglish()) return answerLibraryQuestionEnglish(rawQuestion);
+  if (window.NasrSettings.isTurkish()) return answerLibraryQuestionTurkish(rawQuestion);
   const question = normalizeLibraryQuestion(rawQuestion);
   const mapsLink = "https://www.google.com/maps/search/?api=1&query=HC93%2B22W%2C%20Douma%2C%20Syria";
   const websiteLink = "https://sites.google.com/view/al-nasr-bookstore/%D8%A7%D9%84%D8%B5%D9%81%D8%AD%D8%A9-%D8%A7%D9%84%D8%B1%D8%A6%D9%8A%D8%B3%D9%8A%D8%A9?authuser=0";

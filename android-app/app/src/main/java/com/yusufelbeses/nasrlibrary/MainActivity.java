@@ -46,6 +46,7 @@ public final class MainActivity extends Activity {
     private static final int PAGE_HEIGHT = 842;
     private static final int PAGE_MARGIN = 32;
     private static final int COLOR_GREEN = Color.rgb(31, 58, 46);
+    private static final int COLOR_POS_TEAL = Color.rgb(41, 68, 77);
     private static final int COLOR_GOLD = Color.rgb(201, 162, 74);
     private static final int COLOR_INK = Color.rgb(43, 43, 38);
     private static final int COLOR_MUTED = Color.rgb(105, 99, 86);
@@ -152,28 +153,40 @@ public final class MainActivity extends Activity {
     }
 
     private void createAndShareInvoice(String invoiceJson) {
+        String language = "ar";
         boolean english = false;
+        boolean turkish = false;
         try {
             String currentUrl = webView == null ? null : webView.getUrl();
             if (currentUrl == null || !isSiteUrl(Uri.parse(currentUrl))) {
                 throw new IOException("The invoice request did not come from the library site.");
             }
             JSONObject invoice = new JSONObject(invoiceJson);
-            english = "en".equalsIgnoreCase(invoice.optString("language", "ar"));
+            language = invoice.optString("language", "ar");
+            english = "en".equalsIgnoreCase(language);
+            turkish = "tr".equalsIgnoreCase(language);
             File pdfFile = createInvoicePdf(invoice);
             Uri pdfUri = FileProvider.getUriForFile(
                     this,
                     getPackageName() + ".fileprovider",
                     pdfFile);
-            shareInvoiceToLibrary(pdfUri, invoice.optString("number", ""), english);
+            shareInvoiceToLibrary(pdfUri, invoice.optString("number", ""), english, turkish);
         } catch (Exception exception) {
-            Toast.makeText(this, english ? "Could not create the PDF invoice. Please try again."
-                    : "تعذر إنشاء الفاتورة PDF. حاول مرة أخرى.", Toast.LENGTH_LONG).show();
+            String message = english ? "Could not create the PDF invoice. Please try again."
+                    : turkish ? "PDF fatura oluşturulamadı. Lütfen tekrar deneyin."
+                    : "تعذر إنشاء الفاتورة PDF. حاول مرة أخرى.";
+            Toast.makeText(this, message, Toast.LENGTH_LONG).show();
         }
     }
 
-    private void shareInvoiceToLibrary(Uri pdfUri, String invoiceNumber, boolean english) {
-        String subject = (english ? "Nasr Library invoice " : "فاتورة مكتبة النصر ") + invoiceNumber;
+    private void shareInvoiceToLibrary(Uri pdfUri, String invoiceNumber, boolean english, boolean turkish) {
+        String subject = english ? "Nasr Library invoice " + invoiceNumber
+                : turkish ? "Nasr Kitabevi faturası " + invoiceNumber
+                : "فاتورة مكتبة النصر " + invoiceNumber;
+        String chooserTitle = english ? "Choose WhatsApp, then the Nasr Library chat"
+                : turkish ? "WhatsApp'ı ve Nasr Kitabevi sohbetini seçin"
+                : "اختر واتساب ثم محادثة مكتبة النصر";
+        String clipLabel = english ? "Nasr Library invoice" : turkish ? "Nasr Kitabevi faturası" : "فاتورة مكتبة النصر";
         String[] whatsappPackages = {"com.whatsapp", "com.whatsapp.w4b"};
         for (String packageName : whatsappPackages) {
             Intent whatsappIntent = new Intent(Intent.ACTION_SEND);
@@ -182,7 +195,7 @@ public final class MainActivity extends Activity {
             whatsappIntent.putExtra(Intent.EXTRA_STREAM, pdfUri);
             whatsappIntent.putExtra(Intent.EXTRA_SUBJECT, subject);
             whatsappIntent.putExtra("jid", "963954672747@s.whatsapp.net");
-            whatsappIntent.setClipData(ClipData.newUri(getContentResolver(), "فاتورة مكتبة النصر", pdfUri));
+            whatsappIntent.setClipData(ClipData.newUri(getContentResolver(), clipLabel, pdfUri));
             whatsappIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             try {
                 startActivity(whatsappIntent);
@@ -196,10 +209,9 @@ public final class MainActivity extends Activity {
         fallback.setType("application/pdf");
         fallback.putExtra(Intent.EXTRA_STREAM, pdfUri);
         fallback.putExtra(Intent.EXTRA_SUBJECT, subject);
-        fallback.setClipData(ClipData.newUri(getContentResolver(), "فاتورة مكتبة النصر", pdfUri));
+        fallback.setClipData(ClipData.newUri(getContentResolver(), clipLabel, pdfUri));
         fallback.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        Intent chooser = Intent.createChooser(fallback,
-                english ? "Choose WhatsApp, then the Nasr Library chat" : "اختر واتساب ثم محادثة مكتبة النصر");
+        Intent chooser = Intent.createChooser(fallback, chooserTitle);
         chooser.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         startActivity(chooser);
     }
@@ -211,9 +223,7 @@ public final class MainActivity extends Activity {
         }
 
         String invoiceNumber = invoice.optString("number", "NASR").replaceAll("[^A-Za-z0-9_-]", "");
-        if (invoiceNumber.isEmpty()) {
-            invoiceNumber = "NASR";
-        }
+        if (invoiceNumber.isEmpty()) invoiceNumber = "NASR";
         File invoiceDirectory = new File(getCacheDir(), "invoices");
         if (!invoiceDirectory.exists() && !invoiceDirectory.mkdirs()) {
             throw new IOException("Could not create invoice cache directory.");
@@ -231,9 +241,12 @@ public final class MainActivity extends Activity {
                 Canvas canvas = page.getCanvas();
                 canvas.drawColor(Color.WHITE);
 
-                boolean english = "en".equalsIgnoreCase(invoice.optString("language", "ar"));
-                int y = drawInvoiceHeader(canvas, invoice, pageNumber, english);
-                y = drawTableHeader(canvas, y, english);
+                String language = invoice.optString("language", "ar");
+                boolean english = "en".equalsIgnoreCase(language);
+                boolean turkish = "tr".equalsIgnoreCase(language);
+                boolean rtl = !english && !turkish;
+                int y = drawInvoiceHeader(canvas, invoice, pageNumber, english, turkish);
+                y = drawTableHeader(canvas, y, english, turkish);
                 int rowsOnPage = 0;
 
                 while (itemIndex < items.length()) {
@@ -242,20 +255,20 @@ public final class MainActivity extends Activity {
                         itemIndex++;
                         continue;
                     }
-                    String name = item.optString("name", english ? "Product" : "منتج");
+                    String fallbackName = english ? "Product" : turkish ? "Ürün" : "منتج";
+                    String nameKey = english ? "nameEn" : turkish ? "nameTr" : "nameAr";
+                    String name = item.optString(nameKey, item.optString("name", fallbackName));
                     int quantity = Math.max(1, item.optInt("qty", 1));
                     double price = Math.max(0, item.optDouble("price", 0));
-                    int rowHeight = calculateRowHeight(name);
+                    int rowHeight = calculateRowHeight(name, rtl);
                     int remainingItems = items.length() - itemIndex - 1;
                     int reservedSpace = remainingItems == 0
-                            ? (invoice.optString("notes", "").trim().isEmpty() ? 110 : 155)
+                            ? (invoice.optString("notes", "").trim().isEmpty() ? 112 : 165)
                             : 40;
                     int contentBottom = PAGE_HEIGHT - 58;
-                    if (rowsOnPage > 0 && y + rowHeight + reservedSpace > contentBottom) {
-                        break;
-                    }
+                    if (rowsOnPage > 0 && y + rowHeight + reservedSpace > contentBottom) break;
 
-                    drawInvoiceRow(canvas, y, rowHeight, name, quantity, price, rowsOnPage, english);
+                    drawInvoiceRow(canvas, y, rowHeight, name, quantity, price, rowsOnPage, english, turkish);
                     y += rowHeight;
                     rowsOnPage++;
                     itemIndex++;
@@ -263,27 +276,18 @@ public final class MainActivity extends Activity {
 
                 boolean lastPage = itemIndex >= items.length();
                 if (lastPage) {
-                    y += 15;
-                    y = drawInvoiceTotal(canvas, y, invoice.optDouble("total", 0), english);
+                    y += 14;
+                    y = drawInvoiceTotal(canvas, y, invoice.optDouble("total", 0), english, turkish);
                     String notes = invoice.optString("notes", "").trim();
-                    if (!notes.isEmpty()) {
-                        y = drawInvoiceNotes(canvas, y + 8, notes, english);
-                    }
+                    if (!notes.isEmpty()) y = drawInvoiceNotes(canvas, y + 8, notes, english, turkish);
                 } else {
-                    drawWrappedText(
-                            canvas,
-                            english ? "Continued on next page" : "يتبع في الصفحة التالية",
-                            PAGE_MARGIN,
-                            PAGE_HEIGHT - 78,
-                            PAGE_WIDTH - PAGE_MARGIN * 2,
-                            11,
-                            COLOR_MUTED,
-                            Layout.Alignment.ALIGN_CENTER,
-                            !english,
-                            1);
+                    String continued = english ? "Continued on next page" : turkish ? "Sonraki sayfada devam ediyor" : "يتبع في الصفحة التالية";
+                    drawWrappedText(canvas, continued,
+                            PAGE_MARGIN, PAGE_HEIGHT - 78, PAGE_WIDTH - PAGE_MARGIN * 2,
+                            11, COLOR_MUTED, Layout.Alignment.ALIGN_CENTER, rtl, 1);
                 }
 
-                drawFooter(canvas, pageNumber, english);
+                drawFooter(canvas, pageNumber, english, turkish);
                 document.finishPage(page);
                 pageNumber++;
             } while (itemIndex < items.length());
@@ -298,100 +302,137 @@ public final class MainActivity extends Activity {
         return pdfFile;
     }
 
-    private int drawInvoiceHeader(Canvas canvas, JSONObject invoice, int pageNumber, boolean english) {
-        Paint background = new Paint(Paint.ANTI_ALIAS_FLAG);
-        background.setColor(COLOR_GREEN);
-        canvas.drawRect(0, 0, PAGE_WIDTH, 91, background);
-        drawWrappedText(canvas, english ? "Nasr Library" : "مكتبة النصر",
-                PAGE_MARGIN, 15, PAGE_WIDTH - PAGE_MARGIN * 2,
-                26, Color.WHITE, Layout.Alignment.ALIGN_CENTER, !english, 1);
-        drawWrappedText(canvas, english ? "Sales Invoice · Douma" : "فاتورة مبيعات · دوما",
-                PAGE_MARGIN, 51, PAGE_WIDTH - PAGE_MARGIN * 2,
-                13, Color.rgb(244, 230, 190), Layout.Alignment.ALIGN_CENTER, !english, 1);
+    private int drawInvoiceHeader(Canvas canvas, JSONObject invoice, int pageNumber, boolean english, boolean turkish) {
+        boolean rtl = !english && !turkish;
+        Paint accent = new Paint(Paint.ANTI_ALIAS_FLAG);
+        accent.setColor(COLOR_POS_TEAL);
+        canvas.drawRect(0, 0, PAGE_WIDTH, 7, accent);
 
-        int fullWidth = PAGE_WIDTH - PAGE_MARGIN * 2;
-        int y = 105;
-        drawWrappedText(canvas, (english ? "Invoice no.: " : "رقم الفاتورة: ") + invoice.optString("number", "—"),
-                PAGE_MARGIN, y, fullWidth, 13, COLOR_INK, Layout.Alignment.ALIGN_NORMAL, !english, 1);
-        y += 23;
-        drawWrappedText(canvas, (english ? "Date: " : "التاريخ: ") + invoice.optString("dateLabel", "—"),
-                PAGE_MARGIN, y, fullWidth, 13, COLOR_INK, Layout.Alignment.ALIGN_NORMAL, !english, 1);
-        y += 23;
+        String brand = english ? "Nasr Library" : turkish ? "Nasr Kitabevi" : "مكتبة النصر";
+        String title = english ? "Sales Invoice · Douma" : turkish ? "Satış Faturası · Duma" : "فاتورة مبيعات · دوما";
+        drawWrappedText(canvas, brand, PAGE_MARGIN, 18, PAGE_WIDTH - PAGE_MARGIN * 2,
+                23, COLOR_POS_TEAL, Layout.Alignment.ALIGN_CENTER, rtl, 1);
+        drawWrappedText(canvas, title, PAGE_MARGIN, 48, PAGE_WIDTH - PAGE_MARGIN * 2,
+                12, COLOR_MUTED, Layout.Alignment.ALIGN_CENTER, rtl, 1);
+
+        Paint divider = new Paint(Paint.ANTI_ALIAS_FLAG);
+        divider.setColor(Color.rgb(203, 212, 216));
+        divider.setStrokeWidth(1f);
+        canvas.drawLine(PAGE_MARGIN, 76, PAGE_WIDTH - PAGE_MARGIN, 76, divider);
+
+        Paint card = new Paint(Paint.ANTI_ALIAS_FLAG);
+        card.setColor(Color.rgb(245, 247, 248));
+        canvas.drawRoundRect(new RectF(PAGE_MARGIN, 91, PAGE_WIDTH - PAGE_MARGIN, 190), 6, 6, card);
+        String invoiceLabel = english ? "Invoice no.: " : turkish ? "Fatura no.: " : "رقم الفاتورة: ";
+        String dateLabel = english ? "Date: " : turkish ? "Tarih: " : "التاريخ: ";
+        String customerLabel = english ? "Customer: " : turkish ? "Müşteri: " : "الزبون: ";
         String customer = invoice.optString("customer", "").trim();
-        drawWrappedText(canvas, (english ? "Customer: " : "الزبون: ") + (customer.isEmpty() ? "—" : customer),
-                PAGE_MARGIN, y, fullWidth, 13, COLOR_INK, Layout.Alignment.ALIGN_NORMAL, !english, 2);
-        return 185;
+        int fullWidth = PAGE_WIDTH - PAGE_MARGIN * 2 - 22;
+        int textX = PAGE_MARGIN + 11;
+        drawWrappedText(canvas, invoiceLabel + invoice.optString("number", "—"),
+                textX, 101, fullWidth, 12, COLOR_INK, Layout.Alignment.ALIGN_NORMAL, rtl, 1);
+        drawWrappedText(canvas, dateLabel + invoice.optString("dateLabel", "—"),
+                textX, 124, fullWidth, 12, COLOR_INK, Layout.Alignment.ALIGN_NORMAL, rtl, 1);
+        drawWrappedText(canvas, customerLabel + (customer.isEmpty() ? "—" : customer),
+                textX, 147, fullWidth, 12, COLOR_INK, Layout.Alignment.ALIGN_NORMAL, rtl, 2);
+        return 201;
     }
 
-    private int drawTableHeader(Canvas canvas, int y, boolean english) {
+    private int drawTableHeader(Canvas canvas, int y, boolean english, boolean turkish) {
         int[] widths = {126, 105, 68, 232};
         String[] labels = english
                 ? new String[]{"Amount", "Price", "Qty", "Product"}
+                : turkish ? new String[]{"Tutar", "Fiyat", "Adet", "Ürün"}
                 : new String[]{"الإجمالي", "السعر", "الكمية", "المنتج"};
+        boolean rtl = !english && !turkish;
         Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
-        fill.setColor(Color.rgb(239, 233, 218));
-        canvas.drawRoundRect(new RectF(PAGE_MARGIN, y, PAGE_WIDTH - PAGE_MARGIN, y + 34), 6, 6, fill);
+        fill.setColor(COLOR_POS_TEAL);
+        canvas.drawRoundRect(new RectF(PAGE_MARGIN, y, PAGE_WIDTH - PAGE_MARGIN, y + 35), 4, 4, fill);
         int x = PAGE_MARGIN;
         for (int i = 0; i < widths.length; i++) {
-            drawCellText(canvas, labels[i], x, y, widths[i], 34, 12, COLOR_GREEN,
-                    Layout.Alignment.ALIGN_CENTER, true, 1);
+            drawCellText(canvas, labels[i], x, y, widths[i], 35, 11.5f, Color.WHITE,
+                    Layout.Alignment.ALIGN_CENTER, rtl, 1);
             x += widths[i];
         }
-        return y + 36;
+        return y + 37;
     }
 
-    private int calculateRowHeight(String name) {
+    private int calculateRowHeight(String name, boolean rtl) {
         StaticLayout layout = makeLayout(name, 12, COLOR_INK, 220,
-                Layout.Alignment.ALIGN_NORMAL, true, 2, false);
-        return Math.max(38, Math.min(56, layout.getHeight() + 10));
+                Layout.Alignment.ALIGN_NORMAL, rtl, 2, false);
+        return Math.max(38, Math.min(56, layout.getHeight() + 12));
     }
 
     private void drawInvoiceRow(Canvas canvas, int y, int height, String name, int quantity,
-                                double price, int rowIndex, boolean english) {
+                                double price, int rowIndex, boolean english, boolean turkish) {
+        boolean rtl = !english && !turkish;
         Paint rowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        rowPaint.setColor(rowIndex % 2 == 0 ? Color.rgb(250, 248, 242) : Color.WHITE);
+        rowPaint.setColor(rowIndex % 2 == 0 ? Color.WHITE : Color.rgb(240, 243, 244));
         canvas.drawRect(PAGE_MARGIN, y, PAGE_WIDTH - PAGE_MARGIN, y + height, rowPaint);
 
         int[] widths = {126, 105, 68, 232};
+        String currency = english || turkish ? " SYP" : " ل.س";
         String[] values = {
-                formatAmount(quantity * price) + (english ? " SYP" : " ل.س"),
-                formatAmount(price) + (english ? " SYP" : " ل.س"),
+                formatAmount(quantity * price) + currency,
+                formatAmount(price) + currency,
                 String.valueOf(quantity),
                 name
         };
+        Paint grid = new Paint(Paint.ANTI_ALIAS_FLAG);
+        grid.setColor(Color.rgb(213, 221, 224));
+        grid.setStrokeWidth(0.7f);
         int x = PAGE_MARGIN;
         for (int i = 0; i < widths.length; i++) {
-            drawCellText(canvas, values[i], x, y, widths[i], height, 12, COLOR_INK,
+            drawCellText(canvas, values[i], x, y, widths[i], height, 11.5f, COLOR_INK,
                     i == 3 ? Layout.Alignment.ALIGN_NORMAL : Layout.Alignment.ALIGN_CENTER,
-                    i == 3 || !english, i == 3 ? 2 : 1);
+                    i == 3 && rtl, i == 3 ? 2 : 1);
             x += widths[i];
+            if (i < widths.length - 1) canvas.drawLine(x, y, x, y + height, grid);
         }
-
-        Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
-        line.setColor(Color.rgb(229, 224, 212));
-        line.setStrokeWidth(0.7f);
-        canvas.drawLine(PAGE_MARGIN, y + height, PAGE_WIDTH - PAGE_MARGIN, y + height, line);
+        canvas.drawLine(PAGE_MARGIN, y + height, PAGE_WIDTH - PAGE_MARGIN, y + height, grid);
     }
 
-    private int drawInvoiceTotal(Canvas canvas, int y, double total, boolean english) {
+    private int drawInvoiceTotal(Canvas canvas, int y, double total, boolean english, boolean turkish) {
+        boolean rtl = !english && !turkish;
+        int height = 48;
         Paint background = new Paint(Paint.ANTI_ALIAS_FLAG);
-        background.setColor(COLOR_GREEN);
-        canvas.drawRoundRect(new RectF(PAGE_MARGIN, y, PAGE_WIDTH - PAGE_MARGIN, y + 45), 7, 7, background);
-        String label = english ? "Grand total: " : "المجموع الكلي: ";
-        String currency = english ? " SYP" : " ل.س";
-        drawWrappedText(canvas, label + formatAmount(total) + currency,
-                PAGE_MARGIN + 10, y + 11, PAGE_WIDTH - PAGE_MARGIN * 2 - 20,
-                17, Color.WHITE, Layout.Alignment.ALIGN_NORMAL, !english, 1);
-        return y + 54;
+        background.setColor(Color.rgb(238, 242, 243));
+        canvas.drawRoundRect(new RectF(PAGE_MARGIN, y, PAGE_WIDTH - PAGE_MARGIN, y + height), 5, 5, background);
+        Paint marker = new Paint(Paint.ANTI_ALIAS_FLAG);
+        marker.setColor(COLOR_POS_TEAL);
+        float markerLeft = rtl ? PAGE_WIDTH - PAGE_MARGIN - 5 : PAGE_MARGIN;
+        canvas.drawRect(markerLeft, y + 3, markerLeft + 5, y + height - 3, marker);
+        String label = english ? "Grand total" : turkish ? "Genel toplam" : "المجموع الكلي";
+        String currency = english || turkish ? " SYP" : " ل.س";
+        drawWrappedText(canvas, label + ": " + formatAmount(total) + currency,
+                PAGE_MARGIN + 13, y + 13, PAGE_WIDTH - PAGE_MARGIN * 2 - 26,
+                15, COLOR_POS_TEAL, Layout.Alignment.ALIGN_NORMAL, rtl, 1);
+        return y + height + 8;
     }
 
-    private int drawInvoiceNotes(Canvas canvas, int y, String notes, boolean english) {
-        int height = drawWrappedText(canvas,
-                (english ? "Notes: " : "ملاحظات: ") + notes,
-                PAGE_MARGIN, y, PAGE_WIDTH - PAGE_MARGIN * 2, 13, COLOR_MUTED,
-                Layout.Alignment.ALIGN_NORMAL, !english, 5);
+    private int drawInvoiceNotes(Canvas canvas, int y, String notes, boolean english, boolean turkish) {
+        boolean rtl = !english && !turkish;
+        String label = english ? "Notes: " : turkish ? "Notlar: " : "ملاحظات: ";
+        int width = PAGE_WIDTH - PAGE_MARGIN * 2 - 20;
+        StaticLayout layout = makeLayout(label + notes, 12, COLOR_INK, width,
+                Layout.Alignment.ALIGN_NORMAL, rtl, 5, true);
+        int height = layout.getHeight() + 18;
+        Paint background = new Paint(Paint.ANTI_ALIAS_FLAG);
+        background.setColor(Color.rgb(248, 250, 251));
+        canvas.drawRoundRect(new RectF(PAGE_MARGIN, y, PAGE_WIDTH - PAGE_MARGIN, y + height), 4, 4, background);
+        Paint border = new Paint(Paint.ANTI_ALIAS_FLAG);
+        border.setColor(Color.rgb(213, 221, 224));
+        border.setStyle(Paint.Style.STROKE);
+        border.setStrokeWidth(1f);
+        canvas.drawRoundRect(new RectF(PAGE_MARGIN, y, PAGE_WIDTH - PAGE_MARGIN, y + height), 4, 4, border);
+        canvas.save();
+        canvas.translate(PAGE_MARGIN + 10, y + 9);
+        layout.draw(canvas);
+        canvas.restore();
         return y + height;
     }
+
+
 
     private void drawCellText(Canvas canvas, String text, int x, int y, int width, int height,
                               float size, int color, Layout.Alignment alignment, boolean rtl,
@@ -439,22 +480,25 @@ public final class MainActivity extends Activity {
         return builder.build();
     }
 
-    private void drawFooter(Canvas canvas, int pageNumber, boolean english) {
+    private void drawFooter(Canvas canvas, int pageNumber, boolean english, boolean turkish) {
+        boolean rtl = !english && !turkish;
         Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
         line.setColor(COLOR_GOLD);
         line.setStrokeWidth(1f);
         canvas.drawLine(PAGE_MARGIN, PAGE_HEIGHT - 50, PAGE_WIDTH - PAGE_MARGIN, PAGE_HEIGHT - 50, line);
-        drawWrappedText(canvas,
-                english ? "All rights reserved to Nasr Library, Douma" : "جميع الحقوق محفوظة لدى مكتبة النصر دوما",
-                PAGE_MARGIN, PAGE_HEIGHT - 44, PAGE_WIDTH - PAGE_MARGIN * 2,
-                9, COLOR_GREEN, Layout.Alignment.ALIGN_CENTER, !english, 1);
-        drawWrappedText(canvas,
-                english ? "Douma · 0954 672 747" : "مكتبة النصر · دوما · 0954 672 747",
-                PAGE_MARGIN, PAGE_HEIGHT - 28, PAGE_WIDTH - PAGE_MARGIN * 2,
-                9, COLOR_MUTED, Layout.Alignment.ALIGN_CENTER, !english, 1);
-        drawWrappedText(canvas, (english ? "Page " : "صفحة ") + pageNumber,
-                PAGE_MARGIN, PAGE_HEIGHT - 13, PAGE_WIDTH - PAGE_MARGIN * 2,
-                8, COLOR_MUTED, Layout.Alignment.ALIGN_CENTER, !english, 1);
+        String rights = english ? "All rights reserved to Nasr Library, Douma"
+                : turkish ? "Tüm hakları Duma'daki Nasr Kitabevi'ne aittir"
+                : "جميع الحقوق محفوظة لدى مكتبة النصر دوما";
+        String contact = english ? "Nasr Library · Douma · 0954 672 747"
+                : turkish ? "Nasr Kitabevi · Duma · 0954 672 747"
+                : "مكتبة النصر · دوما · 0954 672 747";
+        String page = (english ? "Page " : turkish ? "Sayfa " : "صفحة ") + pageNumber;
+        drawWrappedText(canvas, rights, PAGE_MARGIN, PAGE_HEIGHT - 44,
+                PAGE_WIDTH - PAGE_MARGIN * 2, 9, COLOR_POS_TEAL, Layout.Alignment.ALIGN_CENTER, rtl, 1);
+        drawWrappedText(canvas, contact, PAGE_MARGIN, PAGE_HEIGHT - 28,
+                PAGE_WIDTH - PAGE_MARGIN * 2, 9, COLOR_MUTED, Layout.Alignment.ALIGN_CENTER, rtl, 1);
+        drawWrappedText(canvas, page, PAGE_MARGIN, PAGE_HEIGHT - 13,
+                PAGE_WIDTH - PAGE_MARGIN * 2, 8, COLOR_MUTED, Layout.Alignment.ALIGN_CENTER, rtl, 1);
     }
 
     private String formatAmount(double value) {

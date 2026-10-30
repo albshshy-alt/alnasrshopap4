@@ -584,3 +584,45 @@ body.english-interface #searchInput{background-position:left 16px center;padding
   .settings-panel{padding:20px 16px 28px;}
 }
 @media print{.settings-toggle,.settings-overlay{display:none!important;}}
+
+
+/* ---- قالب فاتورة كاشير واضح للطباعة وPDF ---- */
+.invoice-area{color:#263238;background:#fff;font-family:'Tajawal',Arial,sans-serif;}
+.invoice-header{align-items:center;border-bottom:1px solid #cbd4d8;border-top:5px solid #29444d;padding:12px 10px 14px;margin-bottom:16px;}
+.invoice-mark{width:42px;height:42px;background:#eef2f3;color:#29444d;box-shadow:none;border:1px solid #d1dadd;}
+.invoice-brand h2{color:#263f47;font-family:'Tajawal','Amiri',sans-serif;font-size:22px;}
+.invoice-brand span{color:#617078;font-size:12px;}
+.invoice-meta{text-align:start;font-size:12px;line-height:1.7;}
+.invoice-meta div{margin-bottom:2px;}
+.invoice-meta span{color:#65727a;}
+.invoice-table{border:1px solid #ccd5d9;border-collapse:collapse;margin-bottom:14px;}
+.invoice-table th,.invoice-table td{border:1px solid #d5dde0;padding:8px 7px;font-size:12.5px;}
+.invoice-table th{background:#29444d;color:#fff;border-color:#29444d;text-align:center;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+.invoice-table td:first-child{text-align:start;}
+.invoice-table tbody tr:nth-child(even) td{background:#f0f3f4;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+.invoice-summary{display:block;text-align:end;margin:10px 0 18px;}
+.invoice-summary-col{display:inline-block;min-width:260px;max-width:100%;text-align:start;}
+.invoice-summary-total{border:0;border-inline-start:5px solid #29444d;border-radius:4px;background:#eef2f3;padding:11px 13px;font-size:15px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+.invoice-summary-total b{color:#263f47;font-family:'Tajawal',sans-serif;font-size:21px;}
+.invoice-notes{border:1px solid #d5dde0;border-radius:4px;background:#f8fafb;padding:9px 11px;margin:0 0 16px;color:#45545b;text-align:start;}
+.invoice-notes span{font-weight:700;color:#29444d;}
+.invoice-footer{border-top:1px dashed #c2ccd0;padding-top:10px;color:#526168;font-size:11px;line-height:1.7;}
+.invoice-footer p+p{margin-top:2px;}
+body.english-interface .settings-panel,body.turkish-interface .settings-panel{direction:ltr;text-align:left;}
+body.english-interface .settings-history-toggle,body.turkish-interface .settings-history-toggle{text-align:left;}
+body.english-interface .category-card,body.turkish-interface .category-card{text-align:left;}
+body.english-interface .kicker,body.turkish-interface .kicker{border-right:0;border-left:3px solid var(--brick);padding-right:0;padding-left:10px;}
+body.english-interface .hero .kicker,body.turkish-interface .hero .kicker{border-left-color:var(--gold-2);}
+body.english-interface #searchInput,body.turkish-interface #searchInput{background-position:left 16px center;padding-right:18px;padding-left:50px;}
+@media print{
+  @page{size:A4;margin:12mm;}
+  body{background:#fff!important;color:#263238!important;}
+  body.english-interface,body.turkish-interface{direction:ltr;}
+  #invoiceArea.invoice-area{display:block!important;width:100%;max-width:720px;margin:0 auto;padding:8px 10px;background:#fff;color:#263238;border:1px solid #d5dde0;border-top:0;box-shadow:none;}
+  #invoiceArea .invoice-header{break-inside:avoid;}
+  #invoiceArea .invoice-table{break-inside:auto;}
+  #invoiceArea .invoice-table tr{break-inside:avoid;break-after:auto;}
+  #invoiceArea .invoice-table th{background:#29444d!important;color:#fff!important;border-color:#29444d!important;}
+  #invoiceArea .invoice-table tbody tr:nth-child(even) td{background:#f0f3f4!important;}
+  #invoiceArea .invoice-summary-total{background:#eef2f3!important;}
+}
