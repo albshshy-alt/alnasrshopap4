@@ -163,21 +163,40 @@ public final class MainActivity extends Activity {
                     this,
                     getPackageName() + ".fileprovider",
                     pdfFile);
-
-            Intent shareIntent = new Intent(Intent.ACTION_SEND);
-            shareIntent.setType("application/pdf");
-            shareIntent.putExtra(Intent.EXTRA_STREAM, pdfUri);
-            shareIntent.putExtra(Intent.EXTRA_SUBJECT, "فاتورة مكتبة النصر " + invoice.optString("number", ""));
-            shareIntent.putExtra(Intent.EXTRA_TEXT, "فاتورة مكتبة النصر — دوما");
-            shareIntent.setClipData(ClipData.newUri(getContentResolver(), "فاتورة مكتبة النصر", pdfUri));
-            shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-
-            Intent chooser = Intent.createChooser(shareIntent, "مشاركة الفاتورة كملف PDF");
-            chooser.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            startActivity(chooser);
+            shareInvoiceToLibrary(pdfUri, invoice.optString("number", ""));
         } catch (Exception exception) {
             Toast.makeText(this, "تعذر إنشاء الفاتورة PDF. حاول مرة أخرى.", Toast.LENGTH_LONG).show();
         }
+    }
+
+    private void shareInvoiceToLibrary(Uri pdfUri, String invoiceNumber) {
+        String[] whatsappPackages = {"com.whatsapp", "com.whatsapp.w4b"};
+        for (String packageName : whatsappPackages) {
+            Intent whatsappIntent = new Intent(Intent.ACTION_SEND);
+            whatsappIntent.setPackage(packageName);
+            whatsappIntent.setType("application/pdf");
+            whatsappIntent.putExtra(Intent.EXTRA_STREAM, pdfUri);
+            whatsappIntent.putExtra(Intent.EXTRA_SUBJECT, "فاتورة مكتبة النصر " + invoiceNumber);
+            whatsappIntent.putExtra("jid", "963954672747@s.whatsapp.net");
+            whatsappIntent.setClipData(ClipData.newUri(getContentResolver(), "فاتورة مكتبة النصر", pdfUri));
+            whatsappIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            try {
+                startActivity(whatsappIntent);
+                return;
+            } catch (ActivityNotFoundException | SecurityException ignored) {
+                // Try WhatsApp Business, then fall back to the Android share sheet.
+            }
+        }
+
+        Intent fallback = new Intent(Intent.ACTION_SEND);
+        fallback.setType("application/pdf");
+        fallback.putExtra(Intent.EXTRA_STREAM, pdfUri);
+        fallback.putExtra(Intent.EXTRA_SUBJECT, "فاتورة مكتبة النصر " + invoiceNumber);
+        fallback.setClipData(ClipData.newUri(getContentResolver(), "فاتورة مكتبة النصر", pdfUri));
+        fallback.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        Intent chooser = Intent.createChooser(fallback, "اختر واتساب ثم محادثة مكتبة النصر");
+        chooser.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        startActivity(chooser);
     }
 
     private File createInvoicePdf(JSONObject invoice) throws IOException {
@@ -222,10 +241,19 @@ public final class MainActivity extends Activity {
                     double price = Math.max(0, item.optDouble("price", 0));
                     int rowHeight = calculateRowHeight(name);
                     int remainingItems = items.length() - itemIndex - 1;
-                    int reservedSpace = remainingItems == 0
-                            ? (invoice.optString("notes", "").trim().isEmpty() ? 110 : 155)
-                            : 40;
-                    int contentBottom = PAGE_HEIGHT - 58;
+                    int reservedSpace = 40;
+                    if (remainingItems == 0) {
+                        reservedSpace = 85;
+                        String noteText = invoice.optString("notes", "").trim();
+                        if (!noteText.isEmpty()) {
+                            int noteTextHeight = makeLayout(noteText, 12, COLOR_INK,
+                                    PAGE_WIDTH - PAGE_MARGIN * 2 - 28,
+                                    Layout.Alignment.ALIGN_NORMAL, true, 5, true).getHeight();
+                            int noteCardHeight = Math.max(56, Math.min(112, noteTextHeight + 34));
+                            reservedSpace += 8 + noteCardHeight;
+                        }
+                    }
+                    int contentBottom = PAGE_HEIGHT - 85;
                     if (rowsOnPage > 0 && y + rowHeight + reservedSpace > contentBottom) {
                         break;
                     }
@@ -242,19 +270,7 @@ public final class MainActivity extends Activity {
                     y = drawInvoiceTotal(canvas, y, invoice.optDouble("total", 0));
                     String notes = invoice.optString("notes", "").trim();
                     if (!notes.isEmpty()) {
-                        y += 8;
-                        int notesHeight = drawWrappedText(
-                                canvas,
-                                "ملاحظات: " + notes,
-                                PAGE_MARGIN,
-                                y,
-                                PAGE_WIDTH - PAGE_MARGIN * 2,
-                                13,
-                                COLOR_MUTED,
-                                Layout.Alignment.ALIGN_NORMAL,
-                                true,
-                                5);
-                        y += notesHeight;
+                        y = drawInvoiceNotes(canvas, y + 8, notes);
                     }
                 } else {
                     drawWrappedText(
@@ -286,49 +302,89 @@ public final class MainActivity extends Activity {
     }
 
     private int drawInvoiceHeader(Canvas canvas, JSONObject invoice, int pageNumber) {
-        Paint background = new Paint(Paint.ANTI_ALIAS_FLAG);
-        background.setColor(COLOR_GREEN);
-        canvas.drawRect(0, 0, PAGE_WIDTH, 91, background);
+        Paint header = new Paint(Paint.ANTI_ALIAS_FLAG);
+        header.setColor(COLOR_GREEN);
+        RectF headerRect = new RectF(PAGE_MARGIN, 24, PAGE_WIDTH - PAGE_MARGIN, 130);
+        canvas.drawRoundRect(headerRect, 16, 16, header);
 
-        drawWrappedText(canvas, "مكتبة النصر", PAGE_MARGIN, 15, PAGE_WIDTH - PAGE_MARGIN * 2,
-                26, Color.WHITE, Layout.Alignment.ALIGN_CENTER, true, 1);
-        drawWrappedText(canvas, "فاتورة مبيعات · دوما", PAGE_MARGIN, 51, PAGE_WIDTH - PAGE_MARGIN * 2,
-                13, Color.rgb(244, 230, 190), Layout.Alignment.ALIGN_CENTER, true, 1);
+        Paint gold = new Paint(Paint.ANTI_ALIAS_FLAG);
+        gold.setColor(COLOR_GOLD);
+        canvas.drawRoundRect(new RectF(PAGE_WIDTH - PAGE_MARGIN - 7, 38,
+                PAGE_WIDTH - PAGE_MARGIN - 3, 116), 2, 2, gold);
+        canvas.drawCircle(PAGE_WIDTH - PAGE_MARGIN - 42, 75, 28, gold);
+        drawWrappedText(canvas, "ن", PAGE_WIDTH - PAGE_MARGIN - 62, 54, 40, 24,
+                COLOR_GREEN, Layout.Alignment.ALIGN_CENTER, true, 1);
 
-        int fullWidth = PAGE_WIDTH - PAGE_MARGIN * 2;
-        int y = 105;
-        drawWrappedText(canvas, "رقم الفاتورة: " + invoice.optString("number", "—"),
-                PAGE_MARGIN, y, fullWidth, 13, COLOR_INK, Layout.Alignment.ALIGN_NORMAL, true, 1);
-        y += 23;
+        drawWrappedText(canvas, "مكتبة النصر", PAGE_MARGIN + 16, 43, 402,
+                27, Color.WHITE, Layout.Alignment.ALIGN_NORMAL, true, 1);
+        drawWrappedText(canvas, "دوما · ريف دمشق · سوريا", PAGE_MARGIN + 16, 77, 402,
+                13, Color.rgb(244, 230, 190), Layout.Alignment.ALIGN_NORMAL, true, 1);
+        canvas.drawRoundRect(new RectF(PAGE_MARGIN + 16, 98, PAGE_MARGIN + 146, 119), 10, 10, gold);
+        drawWrappedText(canvas, "فاتورة مبيعات", PAGE_MARGIN + 19, 101, 124,
+                10, COLOR_GREEN, Layout.Alignment.ALIGN_CENTER, true, 1);
+
+        int cardY = 145;
+        int cardHeight = 80;
+        int cardWidth = 259;
+        int invoiceCardX = PAGE_WIDTH - PAGE_MARGIN - cardWidth;
+        int customerCardX = PAGE_MARGIN;
+        Paint cardFill = new Paint(Paint.ANTI_ALIAS_FLAG);
+        cardFill.setColor(Color.rgb(248, 245, 237));
+        Paint cardBorder = new Paint(Paint.ANTI_ALIAS_FLAG);
+        cardBorder.setColor(Color.rgb(226, 216, 193));
+        cardBorder.setStyle(Paint.Style.STROKE);
+        cardBorder.setStrokeWidth(1f);
+        RectF invoiceCard = new RectF(invoiceCardX, cardY, invoiceCardX + cardWidth, cardY + cardHeight);
+        RectF customerCard = new RectF(customerCardX, cardY, customerCardX + cardWidth, cardY + cardHeight);
+        canvas.drawRoundRect(invoiceCard, 11, 11, cardFill);
+        canvas.drawRoundRect(invoiceCard, 11, 11, cardBorder);
+        canvas.drawRoundRect(customerCard, 11, 11, cardFill);
+        canvas.drawRoundRect(customerCard, 11, 11, cardBorder);
+
+        drawWrappedText(canvas, "بيانات الفاتورة", invoiceCardX + 12, cardY + 7, cardWidth - 24,
+                11, COLOR_GOLD, Layout.Alignment.ALIGN_NORMAL, true, 1);
+        drawWrappedText(canvas, "الرقم: " + invoice.optString("number", "—"),
+                invoiceCardX + 12, cardY + 27, cardWidth - 24, 12, COLOR_INK,
+                Layout.Alignment.ALIGN_NORMAL, true, 1);
         drawWrappedText(canvas, "التاريخ: " + invoice.optString("dateLabel", "—"),
-                PAGE_MARGIN, y, fullWidth, 13, COLOR_INK, Layout.Alignment.ALIGN_NORMAL, true, 1);
-        y += 23;
+                invoiceCardX + 12, cardY + 48, cardWidth - 24, 12, COLOR_INK,
+                Layout.Alignment.ALIGN_NORMAL, true, 1);
+
         String customer = invoice.optString("customer", "").trim();
-        drawWrappedText(canvas, "الزبون: " + (customer.isEmpty() ? "—" : customer),
-                PAGE_MARGIN, y, fullWidth, 13, COLOR_INK, Layout.Alignment.ALIGN_NORMAL, true, 2);
-        return 185;
+        drawWrappedText(canvas, "بيانات الزبون", customerCardX + 12, cardY + 7, cardWidth - 24,
+                11, COLOR_GOLD, Layout.Alignment.ALIGN_NORMAL, true, 1);
+        drawWrappedText(canvas, "الاسم: " + (customer.isEmpty() ? "—" : customer),
+                customerCardX + 12, cardY + 29, cardWidth - 24, 12, COLOR_INK,
+                Layout.Alignment.ALIGN_NORMAL, true, 2);
+
+        drawWrappedText(canvas, "تفاصيل المنتجات", PAGE_MARGIN, 237,
+                PAGE_WIDTH - PAGE_MARGIN * 2, 16, COLOR_GREEN,
+                Layout.Alignment.ALIGN_NORMAL, true, 1);
+        Paint underline = new Paint(Paint.ANTI_ALIAS_FLAG);
+        underline.setColor(COLOR_GOLD);
+        canvas.drawRoundRect(new RectF(PAGE_MARGIN, 267, PAGE_WIDTH - PAGE_MARGIN, 270), 2, 2, underline);
+        return 277;
     }
 
     private int drawTableHeader(Canvas canvas, int y) {
         int[] widths = {126, 105, 68, 232};
         String[] labels = {"الإجمالي", "السعر", "الكمية", "المنتج"};
         Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
-        fill.setColor(Color.rgb(239, 233, 218));
-        canvas.drawRoundRect(new RectF(PAGE_MARGIN, y, PAGE_WIDTH - PAGE_MARGIN, y + 34), 6, 6, fill);
-
+        fill.setColor(COLOR_GREEN);
+        canvas.drawRoundRect(new RectF(PAGE_MARGIN, y, PAGE_WIDTH - PAGE_MARGIN, y + 36), 9, 9, fill);
         int x = PAGE_MARGIN;
         for (int i = 0; i < widths.length; i++) {
-            drawCellText(canvas, labels[i], x, y, widths[i], 34, 12, COLOR_GREEN,
+            drawCellText(canvas, labels[i], x, y, widths[i], 36, 12, Color.WHITE,
                     Layout.Alignment.ALIGN_CENTER, true, 1);
             x += widths[i];
         }
-        return y + 36;
+        return y + 40;
     }
 
     private int calculateRowHeight(String name) {
         StaticLayout layout = makeLayout(name, 12, COLOR_INK, 220,
                 Layout.Alignment.ALIGN_NORMAL, true, 2, false);
-        return Math.max(38, Math.min(56, layout.getHeight() + 10));
+        return Math.max(40, Math.min(56, layout.getHeight() + 12));
     }
 
     private void drawInvoiceRow(Canvas canvas, int y, int height, String name, int quantity,
@@ -336,6 +392,10 @@ public final class MainActivity extends Activity {
         Paint rowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         rowPaint.setColor(rowIndex % 2 == 0 ? Color.rgb(250, 248, 242) : Color.WHITE);
         canvas.drawRect(PAGE_MARGIN, y, PAGE_WIDTH - PAGE_MARGIN, y + height, rowPaint);
+
+        Paint accent = new Paint(Paint.ANTI_ALIAS_FLAG);
+        accent.setColor(COLOR_GOLD);
+        canvas.drawRect(PAGE_WIDTH - PAGE_MARGIN - 3, y + 4, PAGE_WIDTH - PAGE_MARGIN, y + height - 4, accent);
 
         int[] widths = {126, 105, 68, 232};
         String[] values = {
@@ -346,6 +406,12 @@ public final class MainActivity extends Activity {
         };
         int x = PAGE_MARGIN;
         for (int i = 0; i < widths.length; i++) {
+            if (i == 2) {
+                Paint quantityPill = new Paint(Paint.ANTI_ALIAS_FLAG);
+                quantityPill.setColor(Color.rgb(239, 233, 218));
+                canvas.drawRoundRect(new RectF(x + 18, y + 8, x + widths[i] - 18, y + height - 8),
+                        8, 8, quantityPill);
+            }
             drawCellText(canvas, values[i], x, y, widths[i], height, 12, COLOR_INK,
                     i == 3 ? Layout.Alignment.ALIGN_NORMAL : Layout.Alignment.ALIGN_CENTER,
                     i == 3, i == 3 ? 2 : 1);
@@ -361,11 +427,43 @@ public final class MainActivity extends Activity {
     private int drawInvoiceTotal(Canvas canvas, int y, double total) {
         Paint background = new Paint(Paint.ANTI_ALIAS_FLAG);
         background.setColor(COLOR_GREEN);
-        canvas.drawRoundRect(new RectF(PAGE_MARGIN, y, PAGE_WIDTH - PAGE_MARGIN, y + 45), 7, 7, background);
-        drawWrappedText(canvas, "المجموع الكلي: " + formatAmount(total) + " ل.س",
-                PAGE_MARGIN + 10, y + 11, PAGE_WIDTH - PAGE_MARGIN * 2 - 20,
-                17, Color.WHITE, Layout.Alignment.ALIGN_NORMAL, true, 1);
-        return y + 54;
+        canvas.drawRoundRect(new RectF(PAGE_MARGIN, y, PAGE_WIDTH - PAGE_MARGIN, y + 62), 11, 11, background);
+
+        Paint amountBadge = new Paint(Paint.ANTI_ALIAS_FLAG);
+        amountBadge.setColor(COLOR_GOLD);
+        canvas.drawRoundRect(new RectF(PAGE_MARGIN + 10, y + 10, PAGE_MARGIN + 205, y + 52),
+                9, 9, amountBadge);
+        drawWrappedText(canvas, formatAmount(total) + " ل.س", PAGE_MARGIN + 16, y + 20, 183,
+                16, COLOR_GREEN, Layout.Alignment.ALIGN_CENTER, false, 1);
+        drawWrappedText(canvas, "الإجمالي النهائي", PAGE_MARGIN + 218, y + 12,
+                PAGE_WIDTH - PAGE_MARGIN * 2 - 232, 16, Color.WHITE,
+                Layout.Alignment.ALIGN_NORMAL, true, 1);
+        drawWrappedText(canvas, "المبلغ المطلوب دفعه", PAGE_MARGIN + 218, y + 35,
+                PAGE_WIDTH - PAGE_MARGIN * 2 - 232, 10, Color.rgb(231, 224, 205),
+                Layout.Alignment.ALIGN_NORMAL, true, 1);
+        return y + 70;
+    }
+
+    private int drawInvoiceNotes(Canvas canvas, int y, String notes) {
+        int x = PAGE_MARGIN;
+        int width = PAGE_WIDTH - PAGE_MARGIN * 2;
+        StaticLayout noteLayout = makeLayout(notes, 12, COLOR_INK, width - 28,
+                Layout.Alignment.ALIGN_NORMAL, true, 5, true);
+        int height = Math.max(56, Math.min(112, noteLayout.getHeight() + 34));
+        RectF card = new RectF(x, y, x + width, y + height);
+        Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
+        fill.setColor(Color.rgb(250, 248, 242));
+        Paint border = new Paint(Paint.ANTI_ALIAS_FLAG);
+        border.setColor(Color.rgb(226, 216, 193));
+        border.setStyle(Paint.Style.STROKE);
+        border.setStrokeWidth(1f);
+        canvas.drawRoundRect(card, 9, 9, fill);
+        canvas.drawRoundRect(card, 9, 9, border);
+        drawWrappedText(canvas, "ملاحظات الطلب", x + 12, y + 6, width - 24,
+                10, COLOR_GOLD, Layout.Alignment.ALIGN_NORMAL, true, 1);
+        drawWrappedText(canvas, notes, x + 12, y + 23, width - 24,
+                12, COLOR_INK, Layout.Alignment.ALIGN_NORMAL, true, 5);
+        return y + height;
     }
 
     private void drawCellText(Canvas canvas, String text, int x, int y, int width, int height,
@@ -398,7 +496,8 @@ public final class MainActivity extends Activity {
         TextPaint textPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG | Paint.SUBPIXEL_TEXT_FLAG);
         textPaint.setColor(color);
         textPaint.setTextSize(size);
-        textPaint.setTypeface(Typeface.create("sans-serif", Typeface.NORMAL));
+        int typeStyle = size >= 16 ? Typeface.BOLD : Typeface.NORMAL;
+        textPaint.setTypeface(Typeface.create("sans-serif", typeStyle));
 
         StaticLayout.Builder builder = StaticLayout.Builder.obtain(value, 0, value.length(), textPaint, Math.max(12, width))
                 .setAlignment(alignment)
@@ -417,18 +516,21 @@ public final class MainActivity extends Activity {
     private void drawFooter(Canvas canvas, int pageNumber) {
         Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
         line.setColor(COLOR_GOLD);
-        line.setStrokeWidth(1f);
-        canvas.drawLine(PAGE_MARGIN, PAGE_HEIGHT - 48, PAGE_WIDTH - PAGE_MARGIN, PAGE_HEIGHT - 48, line);
-        drawWrappedText(canvas, "مكتبة النصر · دوما · 0954 672 747",
-                PAGE_MARGIN, PAGE_HEIGHT - 39, PAGE_WIDTH - PAGE_MARGIN * 2,
-                10, COLOR_MUTED, Layout.Alignment.ALIGN_CENTER, true, 1);
+        line.setStrokeWidth(1.2f);
+        canvas.drawLine(PAGE_MARGIN, PAGE_HEIGHT - 68, PAGE_WIDTH - PAGE_MARGIN, PAGE_HEIGHT - 68, line);
+        drawWrappedText(canvas, "جميع الحقوق محفوظة لدى مكتبة النصر دوما",
+                PAGE_MARGIN, PAGE_HEIGHT - 61, PAGE_WIDTH - PAGE_MARGIN * 2,
+                10, COLOR_GREEN, Layout.Alignment.ALIGN_CENTER, true, 1);
+        drawWrappedText(canvas, "ريف دمشق · 0954 672 747",
+                PAGE_MARGIN, PAGE_HEIGHT - 43, PAGE_WIDTH - PAGE_MARGIN * 2,
+                9, COLOR_MUTED, Layout.Alignment.ALIGN_CENTER, true, 1);
         drawWrappedText(canvas, "صفحة " + pageNumber,
-                PAGE_MARGIN, PAGE_HEIGHT - 21, PAGE_WIDTH - PAGE_MARGIN * 2,
-                9, COLOR_MUTED, Layout.Alignment.ALIGN_CENTER, false, 1);
+                PAGE_MARGIN, PAGE_HEIGHT - 25, PAGE_WIDTH - PAGE_MARGIN * 2,
+                8, COLOR_MUTED, Layout.Alignment.ALIGN_CENTER, false, 1);
     }
 
     private String formatAmount(double value) {
-        return String.format(Locale.US, "%.0f", value);
+        return String.format(Locale.US, "%,.0f", value);
     }
 
     private boolean handlePopupUrl(WebView popup, Uri uri) {
