@@ -596,6 +596,7 @@ function normalizeMultilingual(value) {
   return String(value || "").toLowerCase().normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "").replace(/ı/g, "i")
     .replace(/[\u064B-\u065F\u0670\u0640]/g, "")
+    .replace(/[،؛؟]/g, " ")
     .replace(/[أإآ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه")
     .replace(/[^\u0600-\u06FFa-z0-9\s]/gi, " ").replace(/\s+/g, " ").trim();
 }
@@ -604,14 +605,100 @@ function normalizeLibraryQuestion(value) {
   return normalizeMultilingual(value);
 }
 
-function productMatchesQuestion(rawQuestion, product) {
-  const question = normalizeMultilingual(rawQuestion);
-  return [product.name, product.nameEn, product.nameTr]
-    .filter(Boolean)
-    .some(name => {
-      const candidate = normalizeMultilingual(name);
-      return candidate.length > 1 && question.includes(candidate);
-    });
+function normalizePriceToken(token) {
+  return normalizeMultilingual(token).replace(/^(?:بال|لل|ال)(?=[\u0600-\u06FF]{2,}$)/, "");
+}
+
+const PRICE_QUERY_STOP_WORDS = new Set([
+  "كم", "سعر", "السعر", "سعره", "سعرها", "اسعار", "ثمن", "بكم", "قديش", "تكلفه", "تكلفة",
+  "بدي", "اريد", "ممكن", "لو", "سمحت", "عن", "من", "في", "للمنتج", "المنتج", "منتج", "المنتجات", "منتجات", "شو", "ايش", "ما", "هو", "هي", "عندكم", "عندكن", "تبيعون", "هل",
+  "price", "prices", "cost", "how", "much", "what", "is", "are", "the", "of", "for", "a", "an", "do", "you", "have", "please", "tell", "me", "does", "there", "any", "can", "i",
+  "fiyat", "fiyatlar", "fiyati", "fiyatlari", "ucret", "ucreti", "ne", "kadar", "kac", "tutar", "mi", "mu", "var", "lutfen", "bir", "icin"
+].map(normalizePriceToken));
+
+const PRICE_CATEGORY_ALIASES = [
+  { category: "الدفاتر", aliases: ["دفتر", "دفاتر", "الدفاتر", "notebook", "notebooks", "defter", "defterler"] },
+  { category: "الأقلام", aliases: ["قلم", "أقلام", "الأقلام", "pen", "pens", "kalem", "kalemler"] },
+  { category: "الألوان", aliases: ["ألوان", "الألوان", "art supplies", "color", "colors", "colour", "colours", "boyalar", "renkler"] },
+  { category: "أدوات مدرسية ومكتبية", aliases: ["أدوات مدرسية ومكتبية", "أدوات مدرسية", "أدوات مكتبية", "school and office supplies", "school supplies", "office supplies", "okul ve ofis malzemeleri", "ofis malzemeleri"] },
+  { category: "المطارات وعلب الطعام", aliases: ["المطارات وعلب الطعام", "مطارات", "علب الطعام", "bottles and lunch boxes", "bottles", "lunch boxes", "termoslar", "yemek kapları"] },
+  { category: "الطباعة", aliases: ["الطباعة", "طباعة", "printing", "print", "baskı"] },
+  { category: "هدايا", aliases: ["هدايا", "هدية", "gifts", "gift", "hediyeler", "hediye"] },
+  { category: "مستلزمات منزلية", aliases: ["مستلزمات منزلية", "أدوات منزلية", "home essentials", "home supplies", "ev gereçleri", "ev eşyaları"] },
+  { category: "الحقائب", aliases: ["حقائب", "حقيبة", "الحقائب", "bags", "bag", "çantalar", "çanta"] }
+];
+
+function findProductPriceMatches(rawQuestion) {
+  const normalizedQuestion = normalizeMultilingual(rawQuestion);
+  const tokens = normalizedQuestion.split(/\s+/).map(normalizePriceToken).filter(Boolean);
+  const matchedCategory = PRICE_CATEGORY_ALIASES.find(row => row.aliases.some(alias => {
+    const normalizedAlias = normalizeMultilingual(alias);
+    return normalizedAlias.includes(" ")
+      ? normalizedQuestion.includes(normalizedAlias)
+      : tokens.includes(normalizePriceToken(normalizedAlias));
+  }));
+  const categoryTokens = new Set((matchedCategory?.aliases || [])
+    .flatMap(alias => normalizeMultilingual(alias).split(/\s+/).map(normalizePriceToken)));
+  const queryTerms = tokens.filter(token => token.length > 1
+    && !PRICE_QUERY_STOP_WORDS.has(token)
+    && !categoryTokens.has(token));
+  const candidates = matchedCategory
+    ? products.filter(product => product.category === matchedCategory.category)
+    : products;
+  const matches = candidates.filter(product => {
+    const names = [product.name, product.nameEn, product.nameTr].filter(Boolean).map(normalizeMultilingual);
+    if (names.some(name => name.length > 1 && normalizedQuestion.includes(name))) return true;
+    if (!queryTerms.length) return Boolean(matchedCategory);
+    const productTokens = new Set(names.flatMap(name => name.split(/\s+/).map(normalizePriceToken)));
+    return queryTerms.every(token => productTokens.has(token));
+  });
+  return { matches, matchedCategory, queryTerms };
+}
+
+function getProductPriceAnswer(rawQuestion, language) {
+  const { matches, matchedCategory } = findProductPriceMatches(rawQuestion);
+  const currency = language === "ar" ? "ل.س" : "SYP";
+  const displayName = product => language === "en" ? (product.nameEn || product.name)
+    : language === "tr" ? (product.nameTr || product.name) : product.name;
+
+  if (!matches.length) {
+    if (language === "en") return "I couldn't find a matching item in the price list. Try its exact name or a distinctive word, for example: 'price large calculator'.";
+    if (language === "tr") return "Fiyat listesinde eşleşen ürün bulamadım. Ürün adını veya ayırt edici bir kelimeyi deneyin; örneğin: 'büyük hesap makinesi fiyatı'.";
+    return "لم أجد صنفاً مطابقاً في قائمة الأسعار. جرّب الاسم الكامل أو كلمة مميزة منه، مثل: «سعر كلكتر كبير».";
+  }
+
+  if (matches.length === 1) {
+    const product = matches[0];
+    if (language === "en") return `The listed price for ${displayName(product)} is ${product.price} ${currency}. Prices may change; please confirm before purchase.`;
+    if (language === "tr") return `${displayName(product)} için listelenen fiyat ${product.price} ${currency}. Fiyatlar değişebilir; lütfen satın almadan önce teyit edin.`;
+    return `السعر المدرج لـ${displayName(product)} هو ${product.price} ${currency}. الأسعار قد تتغير، لذلك يرجى التأكد قبل الشراء.`;
+  }
+
+  const sameName = new Set(matches.map(product => normalizeMultilingual(product.name))).size === 1;
+  const shown = matches.slice(0, 6);
+  const lines = shown.map(product => `• ${displayName(product)} — ${product.price} ${currency}`).join("\n");
+  const more = matches.length > shown.length
+    ? (language === "en" ? `\n${matches.length - shown.length} more matches; enter a more specific name or size.`
+      : language === "tr" ? `\n${matches.length - shown.length} eşleşme daha var; daha belirli bir ad veya boyut yazın.`
+      : `\nوهناك ${matches.length - shown.length} أصناف أخرى؛ اكتب اسماً أدق أو حجماً محدداً.`)
+    : "";
+  let heading;
+  if (language === "en") heading = sameName
+    ? "There are duplicate entries for this name with different listed prices:"
+    : matchedCategory ? "Here are the listed prices for matching items in this department:"
+    : "I found several matching products; here are their listed prices:";
+  else if (language === "tr") heading = sameName
+    ? "Listede bu adla farklı fiyatlarda birden fazla kayıt var:"
+    : matchedCategory ? "Bu bölümde eşleşen ürünlerin listelenen fiyatları:"
+    : "Birden fazla eşleşen ürün buldum; listelenen fiyatlar şöyle:";
+  else heading = sameName
+    ? "يوجد أكثر من إدخال بهذا الاسم وبأسعار مختلفة في القائمة:"
+    : matchedCategory ? "الأسعار المدرجة للأصناف المطابقة في هذا القسم:"
+    : "وجدت عدة أصناف مطابقة؛ إليك أسعارها المدرجة:";
+  const note = language === "en" ? "Prices may change; please confirm before purchase."
+    : language === "tr" ? "Fiyatlar değişebilir; lütfen satın almadan önce teyit edin."
+    : "الأسعار قد تتغير؛ يرجى التأكد قبل الشراء.";
+  return `${heading}\n${lines}${more}\n${note}`;
 }
 
 function libraryQuestionHas(question, phrases) {
@@ -627,14 +714,9 @@ function answerLibraryQuestionEnglish(rawQuestion) {
   if (/\b(website|web site|site|link|online)\b/.test(question)) return `Nasr Library website: ${websiteLink}`;
   if (/\b(where|location|address|map|directions|douma)\b/.test(question)) return `Nasr Library is at Al-Jami'a Al-Arabiya Street, Douma, Rural Damascus, Syria. Map code: HC93+22W. Map: ${mapsLink}`;
   if (/\b(contact|phone|number|whatsapp|message)\b/.test(question)) return "Contact Nasr Library on WhatsApp at 0954 672 747.";
+  if (/\b(price|prices|cost|how much|how many)\b/.test(question)) return getProductPriceAnswer(rawQuestion, "en");
   if (/\b(about|who are you|library)\b/.test(question)) return "Nasr Library is a store in Douma, Rural Damascus, Syria, offering stationery, makeup, gifts, perfumes, toys, printing and home essentials.";
   if (/\b(departments|categories|products|sell|stock|available|offer)\b/.test(question)) return "Our departments include stationery, makeup, gifts, perfumes, toys, printing and home essentials. Ask us on WhatsApp about current availability.";
-  if (/\b(price|prices|cost|how much)\b/.test(question)) {
-    const match = products.filter(product => productMatchesQuestion(rawQuestion, product))
-      .sort((a, b) => Math.max(b.name.length, b.nameEn.length, b.nameTr.length) - Math.max(a.name.length, a.nameEn.length, a.nameTr.length))[0];
-    if (match) return `The listed price for ${match.nameEn} is ${match.price} SYP. Prices can change; please confirm before purchase.`;
-    return "Search the price list by product name, or message Nasr Library on WhatsApp to confirm current price and availability.";
-  }
   return "I am the Nasr Library assistant and can answer only about the library, listed products and prices, location, and contact details.";
 }
 
@@ -648,14 +730,9 @@ function answerLibraryQuestionTurkish(rawQuestion) {
   if (/\b(web sitesi|internet sitesi|website|site|link|online)\b/.test(question)) return `Nasr Kitabevi'nin web sitesi: ${websiteLink}`;
   if (/\b(nerede|konum|adres|harita|yol|duma|douma)\b/.test(question)) return `Nasr Kitabevi, Arap Birliği Caddesi'nde, Duma, Şam kırsalı, Suriye'dedir. Harita kodu: HC93+22W. Harita: ${mapsLink}`;
   if (/\b(iletisim|telefon|numara|whatsapp|mesaj|ulas)\b/.test(question)) return "Nasr Kitabevi'ne WhatsApp üzerinden 0954 672 747 numarasından ulaşabilirsiniz.";
-  if (/\b(hakkimizda|kimsiniz|magaza|bolum|urunler|satiyorsunuz|satiliyor|kiRtasiye|kirtasiye|makyaj|hediye|parfum|oyuncak|baski)\b/.test(question)) {
+  if (/\b(fiyat\w*|ucret\w*|ne kadar|kac|tutar)\b/.test(question)) return getProductPriceAnswer(rawQuestion, "tr");
+  if (/\b(hakkimizda|kimsiniz|magaza|bolum|urunler|satiyorsunuz|satiliyor|kirtasiye|makyaj|hediye|parfum|oyuncak|baski)\b/.test(question)) {
     return "Nasr Kitabevi'nin bölümleri kırtasiye, makyaj, hediyeler, parfümler, oyuncaklar, baskı hizmetleri ve ev gereçleridir. Güncel stok ve fiyatı WhatsApp'tan doğrulayabilirsiniz.";
-  }
-  if (/\b(fiyat|fiyatlar|ucret|ne kadar|kac|tutar)\b/.test(question)) {
-    const match = products.filter(product => productMatchesQuestion(rawQuestion, product))
-      .sort((a, b) => Math.max(b.name.length, b.nameEn.length, b.nameTr.length) - Math.max(a.name.length, a.nameEn.length, a.nameTr.length))[0];
-    if (match) return `${match.nameTr} için listelenen fiyat ${match.price} SYP'dir. Fiyatlar değişebileceğinden satın almadan önce lütfen teyit edin.`;
-    return "Ürün adını fiyat listesinde arayın veya güncel fiyat ve stok bilgisi için Nasr Kitabevi'ne WhatsApp'tan yazın.";
   }
   if (/\b(fatura|sepet|siparis|satin alma)\b/.test(question)) return "Ürünleri sepete ekleyin ve 'Faturayı PDF olarak paylaş' düğmesine basın. Android uygulamasında WhatsApp paylaşımını seçebilirsiniz.";
   return outOfScope;
@@ -688,6 +765,9 @@ function answerLibraryQuestion(rawQuestion) {
     return "للتواصل مع مكتبة النصر اتصل على 0954 672 747، أو راسلنا عبر واتساب على الرقم نفسه.";
   }
 
+  const wantsPrice = libraryQuestionHas(question, ["سعر", "اسعار", "ثمن", "بكم", "قديش", "تكلفه", "كم سعر", "قديش حق"]);
+  if (wantsPrice) return getProductPriceAnswer(rawQuestion, "ar");
+
   if (libraryQuestionHas(question, ["من نحن", "عن المكتبه", "عرفني عن المكتبه", "نبذه عن المكتبه", "معلومات عن المكتبه"])) {
     return "مكتبة النصر مكتبة في دوما، ريف دمشق، شارع الجامعة العربية. تشمل أقسامها القرطاسية والمكياج والهدايا والعطورات والألعاب والطباعة والمستلزمات المنزلية.";
   }
@@ -712,20 +792,6 @@ function answerLibraryQuestion(rawQuestion) {
 
   if (libraryQuestionHas(question, ["اقسام المنتجات", "شو بتبيعوا", "ماذا تبيعون", "منتجاتكم", "اقسامكم", "المنتجات المتوفره", "شو عندكم"])) {
     return "تشمل أقسام مكتبة النصر: القرطاسية، المكياج، الهدايا، العطورات، الألعاب، الطباعة والمستلزمات المنزلية. بعض الأسعار والأصناف تُعرض في قائمة الأسعار، ويمكن الاستفسار عن المتوفر عبر واتساب.";
-  }
-
-  const wantsPrice = libraryQuestionHas(question, ["سعر", "اسعار", "ثمن", "بكم", "قديش", "تكلفه"]);
-  if (wantsPrice) {
-    const matchingProduct = products
-      .filter(product => question.includes(normalizeLibraryQuestion(product.name)))
-      .sort((a, b) => normalizeLibraryQuestion(b.name).length - normalizeLibraryQuestion(a.name).length)[0];
-    if (matchingProduct) {
-      return `السعر المدرج لـ${matchingProduct.name} هو ${matchingProduct.price} ل.س. الأسعار قد تتغير، لذلك يرجى التأكد من مكتبة النصر قبل الشراء.`;
-    }
-    if (!libraryQuestionHas(question, ["قائمه الاسعار", "اسعار المنتجات", "اسعاركم", "سعر المنتجات", "سعر دفتر", "سعر دفاتر", "سعر قلم", "سعر قرطاسيه", "سعر الهدايا", "اسعار مكتبه النصر"])) {
-      return outOfScope;
-    }
-    return "تجد الأسعار المتاحة في قائمة الأسعار بالموقع. لم أجد صنفاً محدداً في سؤالك؛ اكتب اسم المنتج كما يظهر في القائمة أو تواصل معنا لمعرفة السعر والتوفر.";
   }
 
   if (libraryQuestionHas(question, ["فاتوره", "السله", "طلب", "شراء"])) {
