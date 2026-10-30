@@ -495,22 +495,13 @@ function buildInvoiceFromCart() {
   return invoice;
 }
 
-function formatInvoiceForWhatsApp(invoice) {
-  const lines = [
-    "فاتورة مكتبة النصر — دوما",
-    `رقم الفاتورة: ${invoice.number}`,
-    `التاريخ: ${invoice.dateLabel}`
-  ];
-
-  if (invoice.customer) lines.push(`الزبون: ${invoice.customer}`);
-  lines.push("", "المنتجات:");
-  invoice.items.forEach((item, index) => {
-    lines.push(`${index + 1}. ${item.name} × ${item.qty} = ${item.qty * item.price} ل.س`);
-  });
-  lines.push("", `الإجمالي: ${invoice.total} ل.س`);
-  if (invoice.notes) lines.push(`ملاحظات: ${invoice.notes}`);
-  lines.push("", "مكتبة النصر — 0954 672 747");
-  return lines.join("\n");
+function shareInvoiceAsPdf(invoice) {
+  const payload = JSON.stringify(invoice);
+  if (window.NasrInvoice && typeof window.NasrInvoice.shareInvoicePdf === "function") {
+    window.NasrInvoice.shareInvoicePdf(payload);
+    return;
+  }
+  window.print();
 }
 
 shareInvoiceBtn.addEventListener("click", () => {
@@ -519,9 +510,7 @@ shareInvoiceBtn.addEventListener("click", () => {
     return;
   }
   const invoice = buildInvoiceFromCart();
-  const message = formatInvoiceForWhatsApp(invoice);
-  const whatsappUrl = `https://wa.me/963954672747?text=${encodeURIComponent(message)}`;
-  window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+  shareInvoiceAsPdf(invoice);
 });
 
 // ===== أحداث عامة =====

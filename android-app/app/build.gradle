@@ -10,7 +10,11 @@ android {
         applicationId 'com.yusufelbeses.nasrlibrary'
         minSdk 23
         targetSdk 34
-        versionCode 1
-        versionName '1.0.0'
+        versionCode 2
+        versionName '1.1.0'
     }
+}
+
+dependencies {
+    implementation 'androidx.core:core:1.12.0'
 }
