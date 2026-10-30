@@ -262,10 +262,9 @@ let products = [
 products.forEach((p, i) => (p.id = i));
 
 let categories = [...new Set(products.map(p => p.category))];
-
-try { localStorage.removeItem("nasrLibraryInvoices"); } catch {}
 let activeCategory = "الكل";
 let cart = {}; // { id: { ...product, qty } }
+let lastInvoice = null;
 
 const catalogEl = document.getElementById("catalog");
 const tabsEl = document.getElementById("tabs");
@@ -290,7 +289,7 @@ const invoiceNotesInput = document.getElementById("invoiceNotes");
 function renderTabs() {
   const allTabs = ["الكل", ...categories];
   tabsEl.innerHTML = allTabs.map(cat => `
-    <button class="tab-btn ${cat === activeCategory ? "active" : ""}" data-cat="${cat}">${cat}</button>
+    <button class="tab-btn ${cat === activeCategory ? "active" : ""}" data-cat="${cat}">${window.NasrSettings.category(cat)}</button>
   `).join("");
 
   tabsEl.querySelectorAll(".tab-btn").forEach(btn => {
@@ -319,7 +318,7 @@ function renderCatalog() {
   });
 
   if (filtered.length === 0) {
-    catalogEl.innerHTML = `<p class="no-results">لا توجد نتائج مطابقة للبحث.</p>`;
+    catalogEl.innerHTML = `<p class="no-results">${window.NasrSettings.t("لا توجد نتائج مطابقة للبحث.")}</p>`;
     return;
   }
 
@@ -331,15 +330,15 @@ function renderCatalog() {
 
   catalogEl.innerHTML = Object.entries(grouped).map(([cat, items]) => `
     <div class="cat-group" style="--spine:${spineColor(cat)}">
-      <h2>${cat} <span class="cat-count">${items.length}</span></h2>
+      <h2>${window.NasrSettings.category(cat)} <span class="cat-count">${items.length}</span></h2>
       <div class="cat-grid">
         ${items.map(p => `
           <div class="product-card">
             <h4>${p.name}</h4>
             ${p.note ? `<div class="product-note">${p.note}</div>` : ""}
             <div class="product-bottom">
-              <span class="price">${p.price} <small>ل.س</small></span>
-              <button class="add-btn" data-id="${p.id}">أضف</button>
+              <span class="price">${p.price} <small>${window.NasrSettings.currency()}</small></span>
+              <button class="add-btn" data-id="${p.id}">${window.NasrSettings.t("أضف")}</button>
             </div>
           </div>
         `).join("")}
@@ -350,10 +349,10 @@ function renderCatalog() {
   catalogEl.querySelectorAll(".add-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       addToCart(parseInt(btn.dataset.id));
-      btn.textContent = "أُضيف ✓";
+      btn.textContent = window.NasrSettings.t("أُضيف ✓");
       btn.classList.add("added");
       setTimeout(() => {
-        btn.textContent = "أضف";
+        btn.textContent = window.NasrSettings.t("أضف");
         btn.classList.remove("added");
       }, 900);
     });
@@ -399,10 +398,10 @@ function updateCartUI() {
     cartCount.classList.add("bump");
   }
   cartCount.textContent = totalQty;
-  cartTotalEl.textContent = `${totalPrice} ل.س`;
+  cartTotalEl.textContent = `${totalPrice} ${window.NasrSettings.currency()}`;
 
   if (items.length === 0) {
-    cartItemsEl.innerHTML = `<p class="empty-cart">السلة فارغة حاليًا.</p>`;
+    cartItemsEl.innerHTML = `<p class="empty-cart">${window.NasrSettings.t("السلة فارغة حاليًا.")}</p>`;
     return;
   }
 
@@ -414,8 +413,8 @@ function updateCartUI() {
         <span>${i.qty}</span>
         <button class="qty-btn" data-id="${i.id}" data-delta="1">+</button>
       </div>
-      <span>${i.qty * i.price} ل.س</span>
-      <button class="remove-btn" data-id="${i.id}" title="حذف">×</button>
+      <span>${i.qty * i.price} ${window.NasrSettings.currency()}</span>
+      <button class="remove-btn" data-id="${i.id}" title="${window.NasrSettings.t("حذف")}">×</button>
     </div>
   `).join("");
 
@@ -432,7 +431,8 @@ function updateCartUI() {
 // ===== التاريخ =====
 // تنسيق ثابت: تقويم ميلادي + أرقام إنجليزية، حتى لا يتغيّر الشهر/اليوم بحسب لغة الجهاز
 function formatInvoiceDate(date) {
-  return new Intl.DateTimeFormat("ar-SY-u-ca-gregory-nu-latn", {
+  const locale = window.NasrSettings.isEnglish() ? "en-US-u-ca-gregory-nu-latn" : "ar-SY-u-ca-gregory-nu-latn";
+  return new Intl.DateTimeFormat(locale, {
     year: "numeric", month: "long", day: "numeric"
   }).format(date);
 }
@@ -444,6 +444,7 @@ function generateInvoiceNumber() {
 }
 
 function fillInvoiceDOM(invoice) {
+  lastInvoice = invoice;
   document.getElementById("invNumber").textContent = invoice.number;
   document.getElementById("invDate").textContent = invoice.timestamp ? formatInvoiceDate(new Date(invoice.timestamp)) : invoice.dateLabel;
   document.getElementById("invCustomer").textContent = invoice.customer || "—";
@@ -460,12 +461,12 @@ function fillInvoiceDOM(invoice) {
     <tr>
       <td>${i.name}</td>
       <td>${i.qty}</td>
-      <td>${i.price} ل.س</td>
-      <td>${i.qty * i.price} ل.س</td>
+      <td>${i.price} ${window.NasrSettings.currency()}</td>
+      <td>${i.qty * i.price} ${window.NasrSettings.currency()}</td>
     </tr>
   `).join("");
 
-  document.getElementById("invTotal").textContent = `${invoice.total} ل.س`;
+  document.getElementById("invTotal").textContent = `${invoice.total} ${window.NasrSettings.currency()}`;
 }
 
 function buildInvoiceFromCart() {
@@ -488,7 +489,8 @@ function buildInvoiceFromCart() {
     customer,
     notes,
     items,
-    total
+    total,
+    language: window.NasrSettings.getLanguage()
   };
 
   fillInvoiceDOM(invoice);
@@ -506,10 +508,11 @@ function shareInvoiceAsPdf(invoice) {
 
 shareInvoiceBtn.addEventListener("click", () => {
   if (Object.keys(cart).length === 0) {
-    alert("السلة فارغة، أضف منتجات أولاً.");
+    alert(window.NasrSettings.t("السلة فارغة، أضف منتجات أولاً."));
     return;
   }
   const invoice = buildInvoiceFromCart();
+  window.NasrSettings.saveOperation(invoice);
   shareInvoiceAsPdf(invoice);
 });
 
@@ -541,7 +544,11 @@ document.querySelectorAll("[data-open-category]").forEach(button => {
 document.querySelectorAll("[data-ask-category]").forEach(button => {
   button.addEventListener("click", () => {
     const category = button.dataset.askCategory;
-    const message = encodeURIComponent(`مرحباً، أريد الاستفسار عن قسم ${category} والأصناف المتوفرة والأسعار في مكتبة النصر.`);
+    const categoryName = window.NasrSettings.category(category);
+    const messageText = window.NasrSettings.isEnglish()
+      ? `Hello, I would like to ask about the ${categoryName} department, available items and prices at Nasr Library.`
+      : `مرحباً، أريد الاستفسار عن قسم ${categoryName} والأصناف المتوفرة والأسعار في مكتبة النصر.`;
+    const message = encodeURIComponent(messageText);
     window.open(`https://wa.me/963954672747?text=${message}`, "_blank", "noopener,noreferrer");
   });
 });
@@ -558,7 +565,28 @@ function libraryQuestionHas(question, phrases) {
   return phrases.some(phrase => question.includes(normalizeLibraryQuestion(phrase)));
 }
 
+function answerLibraryQuestionEnglish(rawQuestion) {
+  const question = String(rawQuestion || "").toLowerCase().replace(/[^a-z0-9\u0600-\u06ff\s]/g, " ").replace(/\s+/g, " ").trim();
+  const arabicQuestion = normalizeLibraryQuestion(rawQuestion);
+  const mapsLink = "https://www.google.com/maps/search/?api=1&query=HC93%2B22W%2C%20Douma%2C%20Syria";
+  const websiteLink = "https://sites.google.com/view/al-nasr-bookstore/%D8%A7%D9%84%D8%B5%D9%81%D8%AD%D8%A9-%D8%A7%D9%84%D8%B1%D8%A6%D9%8A%D8%B3%D9%8A%D8%A9?authuser=0";
+  if (!question) return "Please ask a question about Nasr Library.";
+  if (/\b(hello|hi|hey|good morning|good evening)\b/.test(question)) return "Welcome to Nasr Library. Ask me about our departments, listed prices, location or website.";
+  if (/\b(website|web site|site|link|online)\b/.test(question)) return `Nasr Library website: ${websiteLink}`;
+  if (/\b(where|location|address|map|directions|douma)\b/.test(question)) return `Nasr Library is at Al-Jami'a Al-Arabiya Street, Douma, Rural Damascus, Syria. Map code: HC93+22W. Map: ${mapsLink}`;
+  if (/\b(contact|phone|number|whatsapp|message)\b/.test(question)) return "Contact Nasr Library on WhatsApp at 0954 672 747.";
+  if (/\b(about|who are you|library)\b/.test(question)) return "Nasr Library is a store in Douma, Rural Damascus, Syria, offering stationery, makeup, gifts, perfumes, toys, printing and home essentials.";
+  if (/\b(departments|categories|products|sell|stock|available|offer)\b/.test(question)) return "Our departments include stationery, makeup, gifts, perfumes, toys, printing and home essentials. Ask us on WhatsApp about current availability.";
+  if (/\b(price|prices|cost|how much)\b/.test(question)) {
+    const match = products.find(product => arabicQuestion.includes(normalizeLibraryQuestion(product.name)));
+    if (match) return `The listed price for ${match.name} is ${match.price} SYP. Prices can change; please confirm before purchase.`;
+    return "Please search the price list. Product names are currently listed in Arabic; contact us on WhatsApp to confirm price and availability.";
+  }
+  return "I am the Nasr Library assistant and can answer only about the library, listed products and prices, location, and contact details.";
+}
+
 function answerLibraryQuestion(rawQuestion) {
+  if (window.NasrSettings.isEnglish()) return answerLibraryQuestionEnglish(rawQuestion);
   const question = normalizeLibraryQuestion(rawQuestion);
   const mapsLink = "https://www.google.com/maps/search/?api=1&query=HC93%2B22W%2C%20Douma%2C%20Syria";
   const websiteLink = "https://sites.google.com/view/al-nasr-bookstore/%D8%A7%D9%84%D8%B5%D9%81%D8%AD%D8%A9-%D8%A7%D9%84%D8%B1%D8%A6%D9%8A%D8%B3%D9%8A%D8%A9?authuser=0";
@@ -624,7 +652,7 @@ function answerLibraryQuestion(rawQuestion) {
   }
 
   if (libraryQuestionHas(question, ["فاتوره", "السله", "طلب", "شراء"])) {
-    return "يمكنك إضافة المنتجات إلى سلة المشتريات ثم الضغط على «مشاركة الفاتورة عبر واتساب». ستُفتح رسالة جاهزة لمكتبة النصر لتراجعها وترسلها.";
+    return "أضف المنتجات إلى السلة ثم اضغط «مشاركة الفاتورة كملف PDF». على الهاتف اختر واتساب وأكمل إرسال الملف.";
   }
 
   return outOfScope;
@@ -674,6 +702,12 @@ document.querySelectorAll("[data-assistant-question]").forEach(button => {
 });
 
 // ===== تشغيل أولي =====
+window.addEventListener("nasr-language-change", () => {
+  renderTabs();
+  renderCatalog();
+  updateCartUI();
+  if (lastInvoice) fillInvoiceDOM(lastInvoice);
+});
 renderTabs();
 renderCatalog();
 updateCartUI();
