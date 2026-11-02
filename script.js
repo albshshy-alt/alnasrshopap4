@@ -139,7 +139,7 @@ let products = [
   { category: "المطارات وعلب الطعام", name: "علبة طعام - نوع 2", price: 180 },
   { category: "المطارات وعلب الطعام", name: "علبة طعام - نوع 3", price: 150 },
   { category: "المطارات وعلب الطعام", name: "مطرة سبورت", price: 450 },
-  { category: "المطارات وعلب الطعام", name: "مطرة شكل سيارة", price: 500 },
+  { category: "المطارات وعلب الطعام", name: "مطرة شكل سيارة", price: 500, image: "images/car-shaped-water-bottle.jpg" },
   { category: "المطارات وعلب الطعام", name: "مطرة عادي - نوع 2", price: 180 },
   { category: "المطارات وعلب الطعام", name: "مطرة مع كوبين", price: 450 },
 
@@ -361,8 +361,10 @@ function renderCatalog() {
         ${items.map(p => {
           const name = escapeHtml(productDisplayName(p));
           const note = productDisplayNote(p);
+          const image = p.image ? `<img class="product-image" src="${escapeHtml(p.image)}" alt="${name}" loading="lazy" decoding="async">` : "";
           return `
           <div class="product-card">
+            ${image}
             <h4>${name}</h4>
             ${note ? `<div class="product-note">${escapeHtml(note)}</div>` : ""}
             <div class="product-bottom">

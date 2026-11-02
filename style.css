@@ -297,6 +297,7 @@ button:active{transform:scale(.97);}
   padding:18px 18px 16px; box-shadow:var(--shadow-sm);
   transition:box-shadow .2s ease, border-color .2s ease;
 }
+.product-image{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;object-position:center 54%;border-radius:calc(var(--r) - 4px);background:var(--parchment-2);}
 .product-card:hover{box-shadow:var(--shadow-md); border-color:rgba(43,36,28,.28); border-inline-start-color:var(--spine, var(--green));}
 .product-card h4{font-size:15.5px; font-weight:700; color:var(--green-2); min-height:3em;}
 .product-bottom{padding-top:12px; border-top:1px dashed var(--line);}
