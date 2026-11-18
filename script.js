@@ -186,7 +186,7 @@ let products = [
   { category: "هدايا", name: "شمع كبير", price: 35 },
   { category: "هدايا", name: "شمع صغير", price: 25 },
   { category: "هدايا", name: "بالون هابي بيرثداي", price: 250 },
-  { category: "هدايا", name: "بخاخ ثلج صغير", price: 100 },
+  { category: "هدايا", name: "بخاخ ثلج صغير", price: 100, image: "images/small-snow-spray.jpg", imageFit: "portrait" },
   { category: "هدايا", name: "بخاخ ثلج كبير", price: 180 },
   { category: "هدايا", name: "جزدان", price: 150 },
   { category: "هدايا", name: "طبق تغليف", price: 35 },
@@ -361,7 +361,8 @@ function renderCatalog() {
         ${items.map(p => {
           const name = escapeHtml(productDisplayName(p));
           const note = productDisplayNote(p);
-          const image = p.image ? `<img class="product-image" src="${escapeHtml(p.image)}" alt="${name}" loading="lazy" decoding="async">` : "";
+          const imageClass = p.imageFit === "portrait" ? "product-image product-image--portrait" : "product-image";
+          const image = p.image ? `<img class="${imageClass}" src="${escapeHtml(p.image)}" alt="${name}" loading="lazy" decoding="async">` : "";
           return `
           <div class="product-card">
             ${image}
