@@ -148,7 +148,7 @@ let products = [
   { category: "الطباعة", name: "طباعة أبيض وأسود (للصفحة)", price: 5 },
 
   // هدايا
-  { category: "هدايا", name: "لمبدير جوز", price: 1300 },
+  { category: "هدايا", name: "لمبدير جوز", price: 1300, image: "images/lamp-set-jawz.jpg", imageFit: "portrait" },
   { category: "هدايا", name: "لمبدير ورد", price: 350 },
   { category: "هدايا", name: "لمبدير صغير", price: 250 },
   { category: "هدايا", name: "لمبدير صمدية", price: 450 },
